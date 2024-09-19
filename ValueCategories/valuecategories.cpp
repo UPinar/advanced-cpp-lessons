@@ -583,7 +583,7 @@
                         -------------
                         | std::move | 
                         -------------
-  an alternative to std::copy algorithm <algorithm> header
+    an alternative to std::copy algorithm <algorithm> header
 */
 
 /*
@@ -613,15 +613,15 @@
                         -------------
                         | std::move | 
                         -------------
-  value category conversion function <utility> header
+      value category conversion function <utility> header
 */
 
 /*
-  - if L Value comes to std::move function
-      it will be converted to R value
+  - if L Value expression comes to std::move function
+      it will be converted to R value expression
   
-  - if R Value comes to std::move function
-      it will stay as R value
+  - if R Value expression comes to std::move function
+      it will stay as R value expression
 
   static_cast<T&&>(exp);
   std::move(exp);
@@ -650,4 +650,984 @@
     // ---------------------------------------------------
   }
   // Move function have forwarding(universal) reference parameter
+*/
+
+/*
+              -----------------------------------
+              | universal(forwarding) reference |
+              -----------------------------------
+*/
+
+/*
+   
+
+  template <typename T>
+  void func(T&& r); // universal(forwarding) reference
+
+  template <typename T>
+  void func(const T&& r); // NOT universal reference
+
+  template <typename T>
+  class Myclass{
+  public:
+    void foo(T&&); // NOT universal reference
+  };
+
+  template <typename T>
+  class Myclass{
+  public:
+    template <typename U> // member template
+    void foo(U&&); // universal reference
+  };
+
+  template <typename T>
+  class Myclass{
+  public:
+    template <typename ...Args>
+    void emplace_back(Args&&... args); // universal reference
+    // will be used for perfect forwarding
+    // std::vector classes emplace functions
+  };
+*/
+
+/*
+  #include <vector>
+
+  template <typename T>
+  void func(std::vector<T>&&);  // NOT universal reference  
+*/
+
+/*
+  template <typename T>
+  class Myclass{
+  public:
+    struct  Mystruct{
+    }
+  };
+
+  template <typename T>
+  void func(Myclass<T>::Mystruct&&);  // NOT universal reference
+*/
+
+/*
+  int main(){
+    auto&& x = 10;  // universal reference
+
+    for(auto&& x : container){
+      // universal reference
+    }
+  }
+*/
+
+/*
+                      ------------------------
+                      | reference collapsing |
+                      ------------------------
+*/
+
+/*
+      ----------------
+      |   T&    &    |  -> T&
+      |   T&    &&   |  -> T&
+      |   T&&   &    |  -> T&
+      |   T&&   &&   |  -> T&&
+      ----------------
+*/
+
+/*
+  1. template parameters forwarding reference
+  2. auto&&
+  2. type alias declarations(using)
+  3. decltype specifier
+*/
+
+/*
+  template <typename T>
+  void func(T&&){
+  }
+*/
+
+/*
+  class Myclass{};
+
+  using LREF = Myclass&;
+  using RREF = Myclass&&;
+
+  int main(){
+    LREF& r1 = Myclass{};  // syntax error 
+    // reference collapsing rule & & -> & 
+    // LValue reference can not bind to RValue expression
+
+    // error: cannot bind non-const lvalue reference of type 'Myclass&' 
+    // to an rvalue of type 'Myclass'
+
+    Myclass m;
+    RREF&&  r6 = m;           // syntax error
+    // cannot bind rvalue reference of type 'RREF' {aka 'Myclass&&'} 
+    // to lvalue of type  Myclass'
+
+    LREF&   r2 = m;           // VALID    &   &   -> &
+    LREF&&  r3 = m;           // VALID    &   &&  -> & 
+    RREF&   r4 = m;           // VALID    &&  &   -> &
+    RREF&&  r5 = Myclass{};   // VALID    &&  &&  -> && 
+  }
+*/
+
+/*
+  int main(){
+    int x{ 234 };
+    int* ptr = &x;
+
+    decltype(*ptr)& r = x;
+    // *ptr -> LValue expression 
+    // decltype(LValue expression) -> LValue reference
+    // int& & -> reference collapsing -> &  &  -> &
+    // r is LValue reference
+  }
+*/
+
+/*
+  int&& foo();
+
+  int main(){
+    decltype(foo())&& x = 10;
+    // foo() -> XValue expression
+    // decltype(XValue expression) -> RValue reference
+    // int&& && -> reference collapsing -> &&  && -> &&
+    // x is RValue reference
+  }
+*/
+
+/*
+  #include <string>
+
+  std::string foo();
+
+  int main(){
+    std::string str{"hello world"};
+    auto& r = str;
+    std::string&& r2 = foo(); // life extension
+
+    // "str", "r" and "r2" expression's value category is LValue expression
+  }
+*/
+
+/*
+  #include <utility>
+  #include <string>
+
+  // to use it for move operation
+  void func(std::string&& s){
+
+    auto str1 = s; 
+    // "s(identifier)" expression's value category is LValue expression
+    // for str1 std::string's copy constructor will be called
+
+    auto str2 = std::move(s);
+    // "std::move(s)" is RValue expression
+    // for str2,  std::string's move constructor will be called
+  }
+
+  // to use it for copy operation
+  void func(const std::string&){}
+*/
+
+/*
+  #include <array>
+  #include <vector>
+
+  class Myclass{
+  private:
+    std::array<int, 500> mx;
+  };
+  // Myclass does not have a member that stored in heap memory 
+
+  // Myclass class to have a move constructor, 
+  // does not create an advantage for move operation, 
+  // move operation will become a copy operation
+
+
+  class Myclass2{
+  private:
+    std::vector<int> mx;
+  };
+  // Myclass2 class has a member that stored in heap memory(std::vector)
+
+  // Myclass2 class to have a move constructor, 
+  // does create an advantage for move operation
+*/
+
+/*
+  #include <string>
+
+  compilers does small string optimization 
+  when string is small it will be stored in stack memory
+  so move operation will not be useful (won't create advantage)
+*/
+
+/*
+  // Best scenario is copy elision
+
+  #include <string>
+
+  int main(){
+    std::string{"hello world"}; 
+    // std::string{"hello world"} is PRValue expression
+
+    auto str = std::string{"hello world"};
+    // temporary materialization happens 
+    // std::string{"hello world"} expression becomes XValue expression
+  }
+*/
+
+/*
+  #include <string>
+  #include <vector>
+  #include <utility>  // std::move
+
+  int main(){
+    using namespace std;
+
+    string str(100'000, 'A'); 
+    // NO SBO-SSO(small buffer(string) optimization)
+
+
+    // SCENARIO : we will not be use str anymore so better move 
+    // ---------------------------------------------------------
+
+    vector<string> svec;
+    svec.push_back(str); 
+    // becuase of "str(identifier)" is LValue expression
+    // vector's copy constructor will be called
+
+    svec.push_back(move(str));
+    // "move(str)" expression is RValue expression
+    // vector's move constructor will be called
+
+    // ---------------------------------------------------------
+    // after move operation str object will be in moved-from state
+  }
+*/
+
+/*
+  #include <fstream>
+  #include <vector>
+  #include <string>
+  #include <utility>  // std::move
+
+  int main(){
+
+    std::ifstream ifs{"deneme.txt"};
+
+    if (!ifs){
+      std::cerr << "file could not be opened\n";
+      return 1;
+    }
+
+    std::vector<std::string> svec;
+
+    std::string sline;
+    while (getline(ifs, sline)){
+      svec.push_back(move(sline));
+    }
+    // using moved-from state object(sline) again and again
+  }
+*/
+
+/*
+  - moved-from state does not guaranteed to be as same as default 
+  initialized object state.
+  - but for containers in standart library moved-from state is
+  is generally same as default initialized object state.
+  (not technically guaranteed)
+*/
+
+/*
+  #include <string>
+  #include <utility>  // std::move
+
+  int main(){
+
+    using namespace std;
+
+    string str(100'000, 'A'); // fill constructor
+    cout << "str.size() : " << str.size() << '\n';
+    // output -> str.size() : 100000
+
+    auto s = move(str);
+    cout << "str.size() : " << str.size() << '\n';
+    // output -> str.size() : 0
+  }
+*/
+
+/*
+  #include <type_traits>
+
+  // remove_reference -> type transformation metafunction
+
+  // primary template
+  template <typename T>
+  struct RemoveReference{
+    using type = T;
+  };
+
+  // partial specialization for LValue reference types
+  template <typename T>
+  struct RemoveReference<T&>{
+    using type = T;
+  };
+
+  // partial specialization for RValue reference types
+  template <typename T>
+  struct RemoveReference<T&&>{
+    using type = T;
+  };
+
+  // alias template for RemoveReference
+  template <typename T>
+  using RemoveReference_t = typename RemoveReference<T>::type; 
+  // (before C++20)
+
+  // template <typename T>
+  // using RemoveReference_t = RemoveReference<T>::type;       
+  // (after C++20)
+
+  int main(){
+    RemoveReference<int>::type x{};        // int
+    RemoveReference<int&>::type y{};       // int
+    RemoveReference<int&&>::type z{};      // int
+  }
+*/
+
+/*
+  #include <type_traits>
+
+  template <typename T>
+  std::remove_reference_t<T>&& Move(T&& t)
+  {
+    return static_cast<std::remove_reference_t<T>&&>(t);
+  }
+
+  // std::remove_reference_t<T>&&
+  // return value type must be RValue reference
+  // function's parameter is universal reference
+*/
+
+/*
+                ---------------------------------------
+                | special member functions (REMINDER) |
+                ---------------------------------------
+*/
+
+/*
+  - not declared (fonksiyonun olmaması)
+  - user declared 
+    - user declared to be defined
+    - user declared deleted
+    - user declared defaulted
+  implicitly declared
+    - implicitly declared defaulted
+    - implicitly declared deleted
+*/
+
+/*
+  struct Myclass{
+    // default constructor : implicitly declared defaulted
+  };
+
+  // if we did not declare any special member functions
+  // compiler will declare them implicitly
+*/
+
+/*
+  struct Myclass{
+    Myclass(int);
+    // default constructor : not declared
+  };
+  // if we declare a constructor other than default constructor
+  // default constructor will become not declared
+*/
+
+/*
+  struct Myclass{
+    Myclass();
+    Myclass(const Myclass&);
+    // move constructor : not declared
+    // move assignment  : not declared
+  };
+  // if we declare one of copy members(copy constructor or copy assignment)
+  // or a destructor, 
+  // move members(move constructor or move assignment) become not declared
+*/
+
+/*
+  struct Myclass{
+    Myclass();            // user declared to be defined
+    Myclass() = default;  // user declared defaulted
+    Myclass() = delete;   // user declared deleted  
+  };
+*/
+
+/*
+  struct Myclass{
+    Myclass(const Myclass&) = delete;
+    Myclass& operator=(const Myclass&) = delete;
+
+    // copy constructor : user declared deleted
+    // copy assignment  : user declared deleted
+  };
+  // because of copy members are user declared 
+  // move members are not declared
+  // so Myclass is non copyable and non movable
+*/
+
+/*
+  struct Myclass1{
+    Myclass1(const Myclass1&) = delete;
+    Myclass1& operator=(const Myclass1&) = delete;
+    Myclass1(Myclass1&&);
+    Myclass1& operator=(Myclass1&&);
+  };
+
+  struct Myclass2{
+    Myclass2(Myclass2&&);
+    Myclass2& operator=(Myclass2&&);
+  };
+  // when one of move members is user declared
+  // copy members will be deleted implicitly
+
+  // so there is no difference between Myclass1 and Myclass2
+  // but better using Myclass1 in move only types for readability
+*/
+
+/*
+  - deleted function is exists but when it has been called it will be 
+  syntax error.
+  
+  - deleted function is in function overload set but not declared 
+  function is not in function overload set.
+*/
+
+/*
+  void func(int)  = delete;
+  void func(double);
+  void func(float);
+  void func(long);
+
+  // in func function's overload set, there are 4 functions.
+
+  int main(){
+    func('A');  // char -> int (integral promotion) 
+    // func(int) is deleted -> syntax error 
+    // error: use of deleted function 'void func(int)'
+
+    func(23u);  
+    // all functions in overload set are viable -> syntax error
+    // error: call of overloaded 'func(unsigned int)' is ambiguous
+  }
+*/
+
+/*
+  Question : In which scenarios we should delete move members ?
+  Answer   : Never delete move members !!!
+
+  - if move members are not declared, it will fallback to copy members 
+  - if move members are deleted, copy members can not be called!
+*/
+
+/*
+  #include <string> 
+
+  class Myclass{
+  public:
+    Myclass() = default; // implicitly declared defaulted 
+
+    // compiler will generate default constructor, 
+    // will user default member initializers
+  private:
+    int mx{};
+    std::string str{};
+  };
+*/
+
+/*
+  // there is no necessity to default a special member function in
+  // public section of class
+
+  class Myclass{
+  public:
+
+  protected:
+    Myclass(const Myclass&) = default;
+  };
+*/
+
+/*
+  class Myclass{
+  public:
+    Myclass& operator=(const Myclass&)& = default;
+    // compiler will generate copy assignment operator
+    // with a reference qualifier.
+
+    Myclass& operator=(Myclass&&)noexcept = default;
+    // compiler will generate move assignment operator
+    // with a noexcept specifier.
+  };
+*/
+
+/*
+  // myclass.h
+  // ----------
+  class Myclass{
+  public:
+    ~Myclass(); // user declared destructor
+  };
+
+
+  // myclass.cpp
+  // ----------
+  Myclass::~Myclass() = default;  // VALID
+
+  // PIMPLE idioms implementation with unique_ptr 
+  // complete type - incomplete type
+*/
+
+/*
+  - compiler will write the code of special member functions
+    which are user declared defaulted or implicitly declared defaulted.
+    if there will be any situation that will create syntax error
+    when the compiler is writing that function's code, it will
+    implicitly delete that special member function.
+
+    -> a call to some classes private constructor 
+    -> a call to base classes private member function
+    -> if a member class does not have a default constructor but 
+      it is needed to default construct.
+*/
+
+/*
+  class Myclass{
+  public:
+    // default constructor that compiler will generate is
+    // default initialize non-static data members the class.
+
+    // const variables can not be default initialized.
+  private:
+    const int mx;
+  };
+
+  int main(){
+    Myclass m;  // syntax error
+    // error: use of deleted function 'Myclass::Myclass()'
+    // error: uninitialized const member in 'class Myclass'
+  }
+*/
+
+/*
+  class Myclass{
+  public:
+
+  private:
+    int& mx;
+  };
+
+  int main(){
+    Myclass m;  // syntax error
+    // error: use of deleted function 'Myclass::Myclass()'
+    // error: uninitialized reference member in 'class Myclass'
+  }
+*/
+
+/*
+  class Member{
+  public:
+    Member(int);
+  };
+
+  class Myclass{
+  private:
+    Member mx;
+  };
+
+  int main(){
+    Myclass m;  // syntax error
+    // error: use of deleted function 'Myclass::Myclass()'
+    // error: no matching function for call to 'Member::Member()'
+
+    // Myclass's default constructor is implicitly declared defaulted
+    // compiler generated default constructor will default initialize
+    // Member data member, but Member class does not have default constructor
+    // this will cause syntax error and compiler will 
+    // implicitly delete Myclass's default constructor
+  }
+*/
+
+/*
+  class Member{
+  protected:
+    Member();
+  };
+
+  class Myclass{
+  private:
+    Member mx;
+  };
+
+  int main(){
+    Myclass m;  // syntax error
+    // error: use of deleted function 'Myclass::Myclass()'
+    // error: 'Member::Member()' is protected within this context
+
+    // Myclass's default constructor is implicitly declared defaulted
+    // compiler generated default constructor will default initialize
+    // Member data member, but Member's default constructor is protected
+    // this will cause syntax error and compiler will 
+    // implicitly delete Myclass's default constructor
+  }
+*/
+
+/*
+  class Base{
+  public:
+    Base(int);
+  };
+
+  class Myclass : public Base{};
+
+  int main(){
+    Myclass m;  // syntax error
+    // error: use of deleted function 'Myclass::Myclass()'
+    // error: no matching function for call to 'Base::Base()'
+
+    // Myclass's default constructor is implicitly declared defaulted
+    // compiler generated default constructor need to call 
+    // Base class's default constructor because it has a Base class
+    // object inside of it, but Base class does not have a default constructor
+    // this will cause syntax error and compiler will
+    // implicitly delete Myclass's default constructor
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_nothrow_default_constructible_v
+  #include <utility>      // std::declval
+
+  class Class1{};
+  class Class2{};
+
+  class Myclass{
+  private:
+    Class1 mx;
+    Class2 my;
+  };
+
+  int main(){
+    // Question : Does Myclass's default constructor 
+    //            have noexcept specifier?
+
+    constexpr auto b = std::is_nothrow_default_constructible_v<Myclass>;  
+    std::cout << std::boolalpha << b << '\n'; // output -> true
+
+    constexpr bool x = noexcept(std::declval<Myclass>());
+    std::cout << std::boolalpha << x << '\n'; // output -> true
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_nothrow_default_constructible_v
+
+  class Class1{
+  public:
+    Class1(); // user declared default constructor
+    // not giving noexcept guarantee
+  };
+  class Class2{};
+
+  class Myclass{
+  private:
+    Class1 mx;
+    Class2 my;
+  };
+
+  int main(){
+    // Question : Does Myclass's default constructor 
+    //            have noexcept specifier?
+
+    constexpr auto b = std::is_nothrow_default_constructible_v<Myclass>;  
+    std::cout << std::boolalpha << b << '\n'; // output -> false
+
+    // because of Class1's default constructor does not 
+    // have noexcept specifier compiler can not give nothrow 
+    // guarantee to Myclass's default constructor
+    // because if Class1's default constructor can throw an exception
+    // Myclass's default constructor can also throw an exception
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_nothrow_default_constructible_v
+
+  class Class1{
+  public:
+    Class1(); 
+  };
+  class Class2{};
+
+  class Myclass{
+  public:
+    Myclass()noexcept = default; // implicitly declared defaulted
+  private:
+    Class1 mx;
+    Class2 my;
+  };
+
+  int main(){
+    constexpr auto b = std::is_nothrow_default_constructible_v<Myclass>;  
+    std::cout << std::boolalpha << b << '\n'; // output -> true
+  }
+*/
+
+/*
+  #include <string>
+
+  class Myclass{
+
+  private:
+    int mx{};
+    std::string mname{ "noname yet" };
+    // in-class initializer, default member initializer
+  };
+
+  // if we did not initialize mx and mname members in our constructor
+  // compiler will initialize them with the values inside 
+  // default member initiazers
+
+  // when default ctor is implicitly declared defaulted, ctor 
+  // will default initiazlize data members of the class
+  // but if we use in-class initializer(default member initializer)
+  // compiler will use those values to initialize data members 
+*/
+
+/*
+  #include <string>
+
+  class Myclass{
+  public:
+    void print()const{
+      std::cout << "mx : " << mx << " mname : (" << mname << ")\n";
+    }
+  private:
+    int mx;
+    std::string mname;
+  };
+
+  int main(){
+    Myclass m;  // default initialization
+    m.print();  // undefined behaviour(UB)
+    // mx -> indeterminate value, mname -> ""
+
+    // when m object(Myclass type) is default initialized
+    // its class type data member's(std::string) default ctor
+    // will be called
+  }
+*/
+
+/*
+  #include <string>
+
+  class Myclass{
+  public:
+    void print()const{
+      std::cout << "mx : " << mx << " mname : (" << mname << ")\n";
+    }
+  private:
+    int mx;
+    std::string mname;
+  };
+
+  int main(){
+    Myclass m{};  // value initialization -> first step zero initialization
+    m.print();    // output -> mx : 0 mname : ()
+    // mx -> 0, mname -> ""
+  }
+*/
+
+/*
+  #include <string>
+
+  class Myclass{
+  public:
+    void print()const{
+      std::cout << "mx : " << mx << " mname : (" << mname << ")\n";
+    }
+  private:
+    int mx{ 34 };
+    std::string mname{ "Istanbul" };
+  };
+
+  int main(){
+    Myclass m;  // default initialization
+    m.print();  // output -> mx : 34 mname : (Istanbul)
+  }
+*/
+
+/*
+  #include <string>
+
+  class Myclass{
+  public:
+    Myclass() = default;  // user declared defaulted
+    void print()const{
+      std::cout << "mx : " << mx << " mname : (" << mname << ")\n";
+    }
+  private:
+    int mx{ 34 };
+    std::string mname{ "Istanbul" };
+  };
+
+  int main(){
+    Myclass m;  // default initialization
+    m.print();  // output -> mx : 34 mname : (Istanbul)
+  }
+*/
+
+/*
+  #include <string>
+
+  class Myclass{
+  public:
+    Myclass() {}  // user declared defined
+    void print()const{
+      std::cout << "mx : " << mx << " mname : (" << mname << ")\n";
+    }
+  private:
+    int mx{ 34 };
+    std::string mname{ "Istanbul" };
+  };
+
+  int main(){
+    Myclass m;  // default initialization
+    m.print();  // output -> mx : 34 mname : (Istanbul)
+
+
+    // when Myclass's default constructor is user declared defined
+    // Myclass() {} will act like
+    // Myclass() : mx{ 34 }, mname{ "Istanbul" } {}
+  }
+*/
+
+/*
+  #include <string>
+
+  class Myclass{
+  public:
+    Myclass() : mx(98) {}  // user declared defined
+    void print()const{
+      std::cout << "mx : " << mx << " mname : (" << mname << ")\n";
+    }
+  private:
+    int mx{ 34 };
+    std::string mname{ "Istanbul" };
+  };
+
+  int main(){
+    Myclass m;  // default initialization
+    m.print();  // output -> mx : 98 mname : (Istanbul)
+
+    // when Myclass's default constructor is user declared defined
+    // Myclass() : mx(98) {} will act like
+    // Myclass() : mx{ 98 }, mname{ "Istanbul" } {}
+  }
+*/
+
+/*
+          ------------------------------------------------------
+          | noexcept specifier |  noexcept operator (REMINDER) |
+          ------------------------------------------------------
+*/
+
+/*
+  #include <type_traits>  // std::is_nothrow_copy_constructible_v
+
+  void func(int x)noexcept;
+  // func function is giving nothrow guarantee
+
+  void func(int x)noexcept(true);
+  // func function is giving nothrow guarantee
+
+  void func(int x)noexcept(sizeof(int) < 8);
+  // func function is giving nothrow guarantee 
+  // when sizeof(int) < 8 in the system
+
+  template <typename T>
+  void func(T x)noexcept(std::is_nothrow_copy_constructible_v<T>);
+  // if T type's copy constructor is giving nothrow guarantee
+  // func function also is giving nothrow guarantee
+*/
+
+/*
+  int main(){
+    using namespace std;
+
+    // noexcept is compile time operator 
+    // (unevaluated context -> no operation code will be generated)
+
+    constexpr auto b = noexcept(cout << 1);     // b is false
+    // "cout << 1" is an expression 
+
+    constexpr auto b2 = noexcept(10 + 20);      // b2 is true
+    // integer addition is nothrow guarantee, so b2 is true
+  }
+*/
+
+/*
+  template <typename T>
+  void func(T x)noexcept(noexcept(x + x));
+
+  //  void func(T x)noexcept(noexcept(x + x));
+  // if x + x expression has nothrow guarantee
+  //  void func(T x)noexcept(true);
+  //  void func(T x)noexcept;
+  // Those 2 lines are equivalent
+
+  //  void func(T x)noexcept(noexcept(x + x));
+  // if x + x expression DOES NOT HAVE nothrow guarantee
+  //  void func(T x)noexcept(false);
+  //  void func(T x);
+  // Those 2 lines are equivalent
+*/
+
+/*
+  #include <string>
+
+  template <typename T>
+  void func(T x)noexcept(noexcept(x + x));
+
+  struct Myclass{
+  public:
+    Myclass operator+(const Myclass&);  
+    // member operator+() function
+    // better declare it as global, but for this examples sake
+  };
+
+  struct Myclass2{
+  public:
+    Myclass2 operator+(const Myclass2&)noexcept;  
+  };
+
+  int main(){
+    constexpr bool b = noexcept(func(10));  // b is true
+    // integer addition is nothrow guarantee
+
+    std::string s;
+    constexpr bool b2 = noexcept(func(s));  // b2 is false
+    // std::string classes operator+() function 
+    // does not giving nothrow guarantee
+
+    Myclass m;
+    constexpr bool b3 = noexcept(func(m));  // b3 is false
+
+    Myclass2 m2;
+    constexpr bool b4 = noexcept(func(m2));  // b4 is true
+  }
 */
