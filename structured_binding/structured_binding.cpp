@@ -421,5 +421,430 @@
   }
 */
 
+/*
+  #include <tuple>
+  #include <vector>
+  #include <string>
+  #include <fstream>    // std::ofstream
+  #include <iomanip>    // std::setw, std::setf
+  #include <algorithm>  // std::sort
 
+  #include "../nutility.h"
 
+  using Person = std::tuple<int, std::string, std::string>;
+
+  int main()
+  {
+    using namespace std;
+
+    ofstream ofs{ "out.txt" };
+    if (!ofs){
+      std::cerr << "out.txt can not created\n";
+      exit(EXIT_FAILURE);
+    }
+
+    ofs.setf(ios::left, ios::adjustfield);
+
+    vector<Person> pvec;
+    pvec.reserve(10'000u);
+
+    for (int i = 0; i < 10'000; ++i){
+      pvec.emplace_back(Irand{ 0, 100'000 }(), 
+                        rname() + ' ' + rfname(),
+                        rtown());
+    }
+
+    std::sort(pvec.begin(), pvec.end());
+
+    for (const auto& [id, name, town] : pvec){
+      ofs << setw(12) << id << '\t' 
+          << setw(24) << name << '\t' 
+          << town << '\n';
+    }
+  }
+*/
+
+/*
+  #include <tuple>  
+  // std::tuple_size_v(metafunction)
+  // std::tuple_element_t(metafunction)
+  // std::get function template
+
+  using tpl_type = std::tuple<int, double, long>;
+
+  int main()
+  {
+    // -----------------------------------------------------
+
+    std::tuple_size<tpl_type>::value; // 3
+    std::tuple_size_v<tpl_type>;      // 3
+    // (compile-time constant)
+
+    // -----------------------------------------------------
+
+    std::tuple_element<0, tpl_type>::type x1{}; // int
+    std::tuple_element_t<0, tpl_type> x2{};     // int
+
+    std::tuple_element<1, tpl_type>::type x3{}; // double
+    std::tuple_element_t<1, tpl_type> x4{};     // double
+
+    std::tuple_element<2, tpl_type>::type x5{}; // long
+    std::tuple_element_t<2, tpl_type> x6{};     // long
+
+    // -----------------------------------------------------
+
+    std::get<0>(tpl_type{ 1, 3.14, 100L }); // 1
+    // std::get is for run-time access
+  }
+*/
+
+/*
+  #include <array>  
+  // std::tuple_element_t, std::tuple_size_v, std::get
+
+  using array_type = std::array<double, 20>;
+
+  int main()
+  {
+    // -----------------------------------------------------
+
+    std::tuple_size_v<array_type>;  // 20
+
+    // -----------------------------------------------------
+
+    std::tuple_element_t<0, array_type> x1{}; // double
+
+    // -----------------------------------------------------
+
+    array_type arr{ 1., 5., 6. };
+    auto first_elem = std::get<0>(arr);
+
+    std::cout << "first_elem = " << first_elem << "\n";  
+    // output -> first_elem = 1
+
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+  --------------------------------------------------------------
+  |                  auto& [ival, str] = t1;                   |
+  --------------------------------------------------------------
+
+  - derleyici, önce bizim doğrudan görmediğimiz bir referans 
+    değişken tanımlar.
+
+  auto& anon_var = t1;
+
+  --------------------------------------------------------------
+
+  - std::tuple_size meta-fonksiyonu ile bu tuple türünün öğe sayısını
+    derleme zamanında kontrol ediyor.
+
+  std::tuple_size_v<std::remove_reference_t<decltype(anon_var)>>;
+
+  --------------------------------------------------------------
+
+  - eğer bu sayı structured binding içinde kullanılan 
+    special identifier sayısına eşit değilse derleyici hata verir.
+
+  --------------------------------------------------------------
+
+  - std::get<> fonksiyonuna çağrılar yaparak tuple'ın öğelerine
+    referans döndürür.
+
+  std::get<0>(t1);
+  std::get<1>(t1);
+
+  --------------------------------------------------------------
+
+  - std::get fonksiyonlarının geri dönüş değerleriyle 
+    std::tuple_element_t türünden gizli değişkenler
+    oluşturur(aynı işlem tekrar yapılmasın diye).
+
+  std::tuple_element_t<0, 
+    std::remove_reference_t<decltype(anon_var)>>& 
+      anon_elem_0 = std::get<0>(t1);
+
+  std::tuple_element_t<1, 
+    std::remove_reference_t<decltype(anonymous_variable)>>& 
+      anon_elem_1 = std::get<1>(t1);
+
+  --------------------------------------------------------------
+*/
+
+/*
+  #include <tuple>
+  #include <string>
+
+  int main()
+  {
+    std::tuple t1(444, std::string("hello"));
+    auto& [ival, str] = t1;
+
+    str = "world";
+    std::cout << "ival = " << ival
+              << ", str = " << str << "\n";  // output -> 444
+
+    // -----------------------------------------------------
+
+    // auto& anon_var = t1;
+    // int& anon_elem_0 = std::get<0>(t1);
+    // std::string& anon_elem_1 = std::get<1>(t1);
+
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+  auto [x, y] = object;   
+    hidden variables types are not a reference type.
+
+  auto& [x, y] = object;
+    hidden variables types are L value reference type.
+
+  auto&& [x, y] = object;
+    hidden variables types are reference type
+    (L value OR R value reference).
+*/
+
+/*
+  Question: What if get<>() function's return type is 
+            not an L value reference?
+
+  for tuple get function's return type is an L value reference 
+  but for a custom type it might also be the value type or 
+  R value reference.
+
+  for L value reference, special identifiers are,
+    int& anon_elem_0 = std::get<0>(t1);
+    std::string& anon_elem_1 = std::get<1>(t1);
+  
+  for value or R value reference special identifiers are,
+    int&& anon_elem_0 = std::get<0>(t1);          // life extension
+    std::string&& anon_elem_1 = std::get<1>(t1);  // life extension
+*/
+
+/*
+  #include <tuple>
+
+  // generalized lambda expression generated closure type
+  class xyzt_lambda{
+  public:
+    template <typename T>
+    auto operator()(T x) {}
+  }
+
+  int main()
+  {
+    auto [x, y] = std::make_tuple(10, 3.14);
+
+    std::cout << "x = " << x << "\n";  // output -> x = 10
+
+    // -----------------------------------------------------
+
+    auto f1 = [x] { return x * 2; };    // syntax error in C++17
+
+    // -----------------------------------------------------
+
+    auto f1_2 = [&x = x] { x *= 2; };   // VALID since C++17
+    // lambda init. capture syntax 
+    // to capture "x" by reference before C++20
+
+    f1_2();
+    std::cout << "x = " << x << "\n";   // output -> x = 20
+
+    // -----------------------------------------------------
+
+    auto f2 = [&x] { x *= 2; };         // VALID since C++20
+    // to capture "x" by reference since C++20
+
+    f2();
+    std::cout << "x = " << x << "\n";   // output -> x = 40
+
+    // -----------------------------------------------------
+
+    auto f3 = [](auto x){ return x + 5 };
+    // generalized lambda expression
+    // closure type's operator() function is a member template
+    
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+  struct Myclass{
+    constexpr Myclass(int x, int y) : m_x{ x }, m_y{ y } {}
+    int m_x, m_y;
+  };
+
+  int main()
+  {
+    constexpr Myclass m1(10, 20);
+
+    constexpr auto[x, y] = m1;  // syntax error
+    // error: structured binding declaration cannot be 'constexpr'
+  }
+*/
+
+/*
+  #include <utility>        // std::move
+  #include <type_traits>    // std::integral_constant
+  #include <tuple>          // std::tuple_size, std::tuple_element
+
+  class Person{
+  public:
+    Person(int id, std::string name, double wage) :
+      m_id{ id }, m_name{ std::move(name) }, m_wage{ wage } {}
+
+    // getter functions for global get function template
+    int get_id() const { return m_id; }
+    std::string get_name() const { return m_name; }
+    double get_wage() const { return m_wage; }
+  private:
+    int m_id;
+    std::string m_name;
+    double m_wage;
+  };
+
+  namespace std {
+    // -----------------------------------------------------
+
+    template <> // explicit(full) specialization
+    struct tuple_size<Person> : std::integral_constant<size_t, 3> {};
+
+    // template <>
+    // struct tuple_size<Person>{
+    //   constexpr static std::size_t value = 3;
+    // };
+
+    // -----------------------------------------------------
+
+    template <> 
+    struct tuple_element<0, Person> { using type = int; };
+
+    template <> 
+    struct tuple_element<1, Person> { using type = string; };
+
+    template <>
+    struct tuple_element<2, Person> { using type = double; };
+
+    // -----------------------------------------------------
+  }
+
+  template<std::size_t N>
+  auto get(const Person& p)
+  {
+    if constexpr (N == 0)
+      return p.get_id();
+    else if constexpr (N == 1)
+      return p.get_name();
+    else if constexpr (N == 2)
+      return p.get_wage();
+    else
+      static_assert(N < 3, "Invalid index");
+  }
+
+  int main()
+  {
+    std::tuple_size<Person>::value;   // 3
+
+    Person p1{ 348'975, "hello world", 3.14 };
+
+    auto [id, name, wage] = p1;
+
+    std::cout << "id = " << id << "\n";     
+    // output -> id = 348975
+    std::cout << "name = " << name << "\n"; 
+    // output -> name = hello world
+    std::cout << "wage = " << wage << "\n"; 
+    // output -> wage = 3.14
+  }
+*/
+
+/*
+  #include <string>
+  #include <utility>  // std::move , tuple-like API
+
+  class Customer {
+  private:
+    std::string m_first;
+    std::string m_last;
+    long m_val;
+  public:
+    Customer(std::string f, std::string l, long v) :
+      m_first{ std::move(f) }, m_last{ std::move(l) }, m_val{ v } {}
+
+    const std::string& firstname() const { return m_first; }
+    std::string& firstname() { return m_first; }
+
+    const std::string& lastname() const { return m_last; }
+    std::string& lastname() { return m_last; }
+
+    long value() const { return m_val; }
+    long& value() { return m_val; }
+  };
+
+  // -----------------------------------------------------
+
+  template <>   // explicit(full) specialization
+  struct std::tuple_size<Customer> {
+    static constexpr int value = 3;
+  };
+
+  // -----------------------------------------------------
+
+  template <>   // explicit(full) specialization
+  struct std::tuple_element<2, Customer> {
+    using type = long;
+  };
+
+  template <std::size_t Idx>  // partial specialization
+  struct std::tuple_element<Idx, Customer> {
+    using type = std::string;
+  };
+
+  // -----------------------------------------------------
+
+  template <std::size_t I> 
+  decltype(auto) get(Customer& c)
+  {
+    static_assert(I < 3, "Invalid index");
+
+    if constexpr (I == 0)
+      return c.firstname();
+    else if constexpr (I == 1)
+      return c.lastname();
+    else
+      return c.value();
+  }
+
+  template <std::size_t I> 
+  decltype(auto) get(const Customer& c)
+  {
+    static_assert(I < 3, "Invalid index");
+
+    if constexpr (I == 0)
+      return c.firstname();
+    else if constexpr (I == 1)
+      return c.lastname();
+    else
+      return c.value();
+  }
+
+  template <std::size_t I> 
+  decltype(auto) get(Customer&& c)
+  {
+    static_assert(I < 3, "Invalid index");
+
+    if constexpr (I == 0)
+      return std::move(c.firstname());
+    else if constexpr (I == 1)
+      return std::move(c.lastname());
+    else
+      return c.value();
+
+    // check decltype(auto) return type in 
+    // <Perfect Forwarding> chapter
+  }
+*/
