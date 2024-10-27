@@ -69,6 +69,7 @@
     - positive lambda idiom
     - immediately invoked funtion expression
     - overload resolution idiom
+    - idiom that prevent static initialization order fiasco
   - lambda expressions and C++20
     - default ctor and copy assignment of stateless lambda expression
     - lambda expression inside unevaluated context
@@ -82,11 +83,22 @@
   - aggregate types
   - designated initializer for aggregate types
   
-### [`constexpr` `consteval` `constinit`][https://github.com/UPinar/AdvancedCPPLessons/tree/main/constexpr_consteval_constinit]
+### [`constexpr` `consteval` `constinit`](https://github.com/UPinar/AdvancedCPPLessons/tree/main/constexpr_consteval_constinit)
   - `constexpr` functions
   - `consteval`(immediate) function (C++20)
   - `constinit`
 
-### [Questions][https://github.com/UPinar/AdvancedCPPLessons/tree/main/questions]
+### [Attributes](https://github.com/UPinar/AdvancedCPPLessons/tree/main/attributes)
+  - `[[nodiscard]]` attribute
+
+### [Concepts](https://github.com/UPinar/AdvancedCPPLessons/tree/main/concepts)
+  - `require`s` clause
+  - named constraints (`concept`)
+  - `requires` expression
+    - simple requirements
+    - type requirements
+
+
+### [Questions](https://github.com/UPinar/AdvancedCPPLessons/tree/main/questions)
   - `template <auto N>` syntax
   - lazy initialization

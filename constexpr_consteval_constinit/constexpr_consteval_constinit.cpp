@@ -689,6 +689,62 @@
 */
 
 /*
+  int foo(int x) { return x * x; }
+  constexpr int bar(int x) { return x * x; }
+  consteval int baz(int x) { return x * x; }
+
+  int main()
+  {
+    int ival{ 135 };
+
+    // --------------------------------------------------
+
+    auto elem1 = foo(ival); 
+    // run-time, compile can optimize it to compile-time
+
+    // --------------------------------------------------
+
+    auto elem2 = bar(ival);
+    // ival is not a constant expression
+    // "bar(ival)" expression is NOT used in compile-time context
+    // run-time, compile can optimize it to compile-time
+
+    // --------------------------------------------------
+
+    auto elem3 = bar(10);
+    // "10" is a constant expression
+    // "bar(10)" expression is NOT used in compile-time context
+    // run-time, compile can optimize it to compile-time
+
+    // --------------------------------------------------
+
+    constexpr auto elem4 = bar(10);
+    // "10" is a constant expression
+    // "bar(10)" expression is used in compile-time context
+    // guaranteed to be int compile-time
+
+    // --------------------------------------------------
+
+    auto elem5 = baz(ival); // syntax error
+    // "ival" is not a constant expression
+    // "baz(ival)" expression is NOT used in compile-time context
+
+    // error: call to consteval function 'baz(ival)' 
+    // is not a constant expression
+    // error: the value of 'ival' is not usable in a constant expression
+
+    // --------------------------------------------------
+
+    auto elem6 = baz(10);
+    // "10" is a constant expression
+    // "baz(10)" expression is NOT used in compile-time context
+    // guaranteed to be in compile-time `consteval`
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
                       ----------------------
                       | `consinit` keyword |
                       ----------------------
@@ -821,5 +877,145 @@
         <--- check ordering_of_dynamic_initialization.png --->
 
   ---------------------------------------------------------------
+
+  Static initialization aşamasının defaultu "zero initialization"'dır.
+
+  Statik initialization aşamasında, global bir değişken bir 
+  sabit ifadesi ile initialize edilirse "constant initialization" denir.
+
+  Static initialization aşamasında, "constant initialization" 
+  yapılırsa dynamic initialization aşaması yapılmaz.
+    
+  ---------------------------------------------------------------
+
 */
 
+/*
+  ---------------------------------------------------------------
+
+  int global_x = expr;
+
+  - if "expr" is a constant expression, constant initialization 
+    will be applied and no dynamic initialization will be applied.
+
+  - if "expr" is not a constant expression, zero initialization
+    will be applied and dynamic initialization will be applied.
+
+  ---------------------------------------------------------------
+
+  constinit int global_y = expr;
+
+  - if "expr" is a constant expression, constant initialization 
+    will be applied and no dynamic initialization will be applied.
+
+  - if "expr" is not a constant expression, because of there is 
+    a need for dynamic initialization, and `constinit` keyword 
+    has been used, it will become a syntax error.
+
+  - object that have `constinit` keyword guaranteed to 
+    constant initialized. 
+
+  ---------------------------------------------------------------
+*/
+
+/*
+  // constinit = constexpr - const
+
+  constexpr int foo(int x) { return x * x; }
+
+  constexpr int g_x = foo(5);
+  // "g_x" data type is const int
+
+  constinit int g_y = foo(5);
+  // "g_y" data type is const int
+
+  int main()
+  {
+    g_x++;  // syntax error
+    // error: increment of read-only variable 'g_x'
+
+    g_y++;  // VALID
+    std::cout << "g_y = " << g_y << '\n';   // output -> g_y = 26
+  }
+*/
+
+/*
+  constinit auto g_x = 5;
+
+  int foo()
+  {
+    static constinit int s_count = 0;
+    return ++s_count;
+  }
+
+  class Myclas {
+  public:
+    inline static constinit int ms_x = 12;
+  };
+  
+  // global variable initialization (constant initialization)
+  // static local variable initialization (constant initialization)
+  // static data member initialization (constant initialization)
+
+  // static storage duration variables will 
+  // initialized at compile time.
+*/
+
+/*
+  #include <array>
+  #include <cstdio> // std::putchar
+
+  constexpr std::array<int, 4> get_array_4()
+  {
+    return { 1, 2, 3, 4 };
+  }
+
+  constinit auto g_arr4 = get_array_4();
+
+  int main()
+  {
+    for (auto i : g_arr4)
+      std::cout << i << ' ';
+    // output -> 1 2 3 4
+
+    g_arr4[1]++;        
+    g_arr4[2] += 100;
+    // g_arr4 is not const array
+
+    std::putchar('\n');
+
+    for (auto i : g_arr4)
+      std::cout << i << ' ';
+    // output -> 1 3 103 4
+  }
+*/
+
+/*
+  #include <algorithm>  // std::for_each
+  #include <array>      // std::begin, std::end
+  #include <cstdio>     // std::putchar
+
+  template <std::size_t N>
+  constexpr std::array<int, N> get_array()
+  {
+    return std::array<int, N>{ 0 };
+  }
+
+  constinit auto g_arr = get_array<10>();
+
+  int main()
+  {
+    for (auto i : g_arr)
+      std::cout << i << ' ';
+    // output -> 0 0 0 0 0 0 0 0 0 0
+
+    for_each(begin(g_arr), end(g_arr), [](int& elem) { ++elem; });
+    // ADL (Argument Dependent Lookup)
+
+    std::putchar('\n');
+
+    for (auto i : g_arr)
+      std::cout << i << ' ';
+    // 1 1 1 1 1 1 1 1 1 1
+  }
+*/

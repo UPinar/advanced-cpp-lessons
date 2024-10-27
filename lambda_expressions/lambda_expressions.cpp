@@ -1715,6 +1715,42 @@
 */
 
 /*
+      ---------------------------------------------------------
+      | idiom that prevent static initialization order fiasco |
+      ---------------------------------------------------------
+*/
+
+/*
+  template <typename T, auto = []{}>
+  struct Lazy_Init {
+    constexpr Lazy_Init() = default;
+    // objects which are Lazy_Init class type 
+    // can be constant initialized.
+
+    T& get_lazy()
+    {
+      static T global_obj;
+      return global_obj;
+    }
+  };
+
+  struct Tag_1;   // forward declaration (incomplete type)
+  struct Tag_2;   // forward declaration (incomplete type)
+
+  int main()
+  {
+    Lazy_Init<int> obj_1;
+    Lazy_Init<int> obj_2;
+
+    obj_1.get_lazy()++;
+    obj_1.get_lazy()++;
+    obj_1.get_lazy()++;
+
+    std::cout << obj_2.get_lazy() << '\n';  // output -> 0
+  }
+*/
+
+/*
                 ---------------------------------
                 | lambda expressions with C++20 |
                 ---------------------------------
@@ -2244,3 +2280,4 @@
     };
   }
 */
+
