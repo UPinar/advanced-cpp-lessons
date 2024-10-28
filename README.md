@@ -92,13 +92,17 @@
   - `[[nodiscard]]` attribute
 
 ### [Concepts](https://github.com/UPinar/AdvancedCPPLessons/tree/main/concepts)
-  - `require`s` clause
+  - `requires` clause
   - named constraints (`concept`)
   - `requires` expression
-    - simple requirements
-    - type requirements
+    - simple requirement
+    - type requirement
+    - compound requirement
+    - nested requirement (`requires` clause)
+  - subsumption
 
 
-### [Questions](https://github.com/UPinar/AdvancedCPPLessons/tree/main/questions)
+### [Not Lesson Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/questions)
   - `template <auto N>` syntax
   - lazy initialization
+  - refactoring functions

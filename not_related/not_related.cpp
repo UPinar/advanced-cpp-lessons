@@ -341,3 +341,127 @@
     std::cout << obj_2.get_lazy() << '\n';  // output -> 0
   }
 */
+
+/*
+                  -------------------------
+                  | refactoring functions |
+                  -------------------------
+*/
+
+/*
+  // we want to refactor AggregateAndDisplay function
+
+  #include <map>
+  #include <string>
+  #include <utility>  // std::make_pair
+
+  void AggregateAndDisplay( const std::map<int, std::string>& source, 
+                            const std::map<int, std::string>& dest)
+  {
+    auto aggregated_map = dest;
+
+    for (const auto& source_entry : source)
+    {
+      auto dest_pos = aggregated_map.find(source_entry.first);
+
+      if (dest_pos == aggregated_map.end())
+        aggregated_map.insert(std::make_pair(source_entry.first, 
+                                            source_entry.second));
+      else
+        aggregated_map[source_entry.first] = 
+          source_entry.second + " or " + dest_pos->second;
+    }
+    
+    for (const auto& entry : aggregated_map)
+      std::cout << "available translations for "
+                << entry.first << " -> " << entry.second << '\n';
+  }
+
+  // ----------------------------------------------
+
+  // create IIFE idiom
+  // learning output(return value) of the function
+  void refactor_1(const std::map<int, std::string>& source, 
+                  const std::map<int, std::string>& dest)
+  {
+    [&](){
+      auto aggregated_map = dest;
+
+      for (const auto& source_entry : source)
+      {
+        auto dest_pos = aggregated_map.find(source_entry.first);
+
+        if (dest_pos == aggregated_map.end())
+          aggregated_map.insert(std::make_pair(source_entry.first, 
+                                              source_entry.second));
+        else
+          aggregated_map[source_entry.first] = 
+            source_entry.second + " or " + dest_pos->second;
+      }
+    }();
+
+    for (const auto& entry : aggregated_map)
+      std::cout << "available translations for "
+                << entry.first << " -> " << entry.second << '\n';
+    // aggregated_map is not visible here
+    // it will be the return value of the refactored function
+  }
+
+  // ----------------------------------------------
+
+  // remove '&'(capture all by ref) from lambda expression
+  // learning inputs of the lambda expression
+  void refactor_2(const std::map<int, std::string>& source, 
+                  const std::map<int, std::string>& dest)
+  {
+    [](){
+      auto aggregated_map = dest;
+
+      for (const auto& source_entry : source)
+      {
+        auto dest_pos = aggregated_map.find(source_entry.first);
+
+        if (dest_pos == aggregated_map.end())
+          aggregated_map.insert(std::make_pair(source_entry.first, 
+                                              source_entry.second));
+        else
+          aggregated_map[source_entry.first] = 
+            source_entry.second + " or " + dest_pos->second;
+      }
+    }();
+    // dest and source are not visible so they both will be parameters
+  }
+
+  // ----------------------------------------------
+
+  auto refactored_function( const std::map<int, std::string>& source, 
+                            const std::map<int, std::string>& dest)
+  {
+    auto aggregated_map = dest;
+
+    for (const auto& source_entry : source)
+    {
+      auto dest_pos = aggregated_map.find(source_entry.first);
+
+      if (dest_pos == aggregated_map.end())
+        aggregated_map.insert(std::make_pair(source_entry.first, 
+                                            source_entry.second));
+      else
+        aggregated_map[source_entry.first] = 
+          source_entry.second + " or " + dest_pos->second;
+    }
+
+    return aggregated_map;
+  }
+
+  void refactored_AggregateAndDisplay(
+                const std::map<int, std::string>& source, 
+                const std::map<int, std::string>& dest)
+  {
+    auto aggregated_map = refactored_function(source, dest);
+
+    for (const auto& entry : aggregated_map)
+      std::cout << "available translations for "
+                << entry.first << " -> " << entry.second << '\n';
+  }
+*/
