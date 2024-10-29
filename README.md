@@ -28,7 +28,7 @@
   - perfect forwarding
     - `auto&&`
     - `decltype(auto)`
-  - ref qualifier
+  - reference qualifier
   
 ### [Move Semantics and Perfect Forwarding in STL](https://github.com/UPinar/AdvancedCPPLessons/tree/main/move_semantic_perfect_forwarding_in_standart_library)
   - move-only types
@@ -100,9 +100,23 @@
     - compound requirement
     - nested requirement (`requires` clause)
   - subsumption
+  - standart library concepts
+  
+### [C++20 Changes](https://github.com/UPinar/AdvancedCPPLessons/tree/main/cpp20_changes)
+  - signed integral types right and left shift
+  - `std::ssize` global function template
+  - struct's bitfield members
+  - `typename` keyword in dependent type
+  - safe comparison in mixed types
+  - conversion from `void*` to `bool` 
+  - alias template deduction
+  - `source_location` module 
+  - `using` enum declaration
 
+### [`bit` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/bit_module)
 
-### [Not Lesson Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/questions)
+### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
   - lazy initialization
   - refactoring functions
+  - default declaration of special member functions

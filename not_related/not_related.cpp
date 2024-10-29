@@ -465,3 +465,51 @@
                 << entry.first << " -> " << entry.second << '\n';
   }
 */
+
+/*
+          ---------------------------------------------------
+          | default declaration of special member functions |
+          ---------------------------------------------------
+*/
+
+/*
+  // implicitly declared defaulted special member functions
+  // are non-static inline public member functions
+
+  class Myclass {
+  private:
+    Myclass(const Myclass&) = default;
+
+  protected:
+    Myclass(Myclass&&) = default;
+  };
+
+  // special member functions can be in private or protected area
+  // when they are declared by the user
+*/
+
+/*
+  class Myclass {
+  public:
+    Myclass& operator=(const Myclass&)& = default;
+  };
+
+  // user declared defaulted special member functions
+  // can be reference qualified
+*/
+
+/*
+  class AClass {
+  public:
+    AClass() noexcept(false) = default;   // NOT no-throw guaranteed
+  };
+
+  class BClass {
+  public:
+    BClass() noexcept = default;  // no-throw guaranteed
+  };
+
+  // user declared defaulted special member functions
+  // can have `noexcept` specifier
+  // and `noexcept(false)` is also valid
+*/

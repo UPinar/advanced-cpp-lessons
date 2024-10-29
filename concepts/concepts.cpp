@@ -2278,6 +2278,7 @@
 
 /*
   #include <type_traits>  // std::is_same
+  #include <concepts>     // std::invocable
 
   auto func(std::invocable<int, int, int> auto fn)
   {
@@ -2298,98 +2299,6 @@
 
     std::cout << is_same_v<double, decltype(func(f1))> << '\n';
     // output -> true
-  }
-*/
-
-/*
-                <--- check standart_concepts.png --->
-*/
-
-/*
-  // std::regular -> 
-  // default init, copies, moves, swaps, and equality comparisons
-
-  #include <concepts>  // std::regular
-  #include <string>
-
-  void func(std::regular auto){}
-
-  struct AClass {};
-
-  struct BClass {
-    bool operator==(const BClass&) const = default;
-  };
-
-  int main()
-  {
-    func(5);  // VALID
-
-    func(std::string{ "hello world" });   // VALID
-    
-    func(AClass{});  // syntax error
-    // note: the required expression '(__t == __u)' is invalid
-    // note: the required expression '(__t != __u)' is invalid
-    // note: the required expression '(__u == __t)' is invalid
-    // note: the required expression '(__u != __t)' is invalid
-    // equality comparisons constraint is not satisfied
-
-    func(BClass{});  // VALID
-    // equality comparisons constraint is satisfied
-  }
-*/
-
-/*
-  // std::totally_ordered_with 
-  // '<', '>', '<=', '>=', '==', '!=' operations should be valid
-
-  #include <concepts>  // std::totally_ordered_with
-
-  void func(std::totally_ordered_with<int> auto){}
-
-  struct AStruct {};
-
-  int main()
-  {
-    func(34);   // VALID
-    func(2.4);  // VALID
-    func(66U);  // VALID
-
-    func(AStruct{});  // syntax error
-    // note: the required expression '(__t == __u)' is invalid
-    // note: the required expression '(__t != __u)' is invalid
-    // note: the required expression '(__u == __t)' is invalid
-    // note: the required expression '(__u != __t)' is invalid
-    // equality comparisons constraint is not satisfied
-  }
-*/
-
-/*
-  #include <concepts>  // std::copyable
-
-  void func(std::copyable auto){}
-
-  struct AStruct {
-    AStruct(const AStruct&) = delete;
-  };
-
-  struct BStruct {
-  private:
-    BStruct(const BStruct&);
-  };
-
-  struct CStruct {};
-
-  int main()
-  {
-    func(AStruct{});  // syntax error
-    // error: no matching function for call to 
-    // 'AStruct::AStruct(<brace-enclosed initializer list>)'
-
-    func(BStruct{});  // syntax error
-    // error: no matching function for call to 
-    // 'BStruct::BStruct(<brace-enclosed initializer list>)'
-
-    func(CStruct{});  // VALID
   }
 */
 
@@ -2639,6 +2548,497 @@
 
     func('A');  // syntax error
     // error: call of overloaded 'func(char)' is ambiguous
+
+    // ----------------------------------------------
+  }
+*/
+
+/*
+                  -----------------------------
+                  | standart library concepts |
+                  -----------------------------
+*/
+
+/*
+              <--- check standart_concepts.png --->
+*/
+
+/*
+  // std::regular -> 
+  // default init, copies, moves, swaps, and equality comparisons
+
+  #include <concepts>  // std::regular
+  #include <string>
+
+  void func(std::regular auto){}
+
+  struct AClass {};
+
+  struct BClass {
+    bool operator==(const BClass&) const = default;
+  };
+
+  int main()
+  {
+    func(5);  // VALID
+
+    func(std::string{ "hello world" });   // VALID
+    
+    func(AClass{});  // syntax error
+    // note: the required expression '(__t == __u)' is invalid
+    // note: the required expression '(__t != __u)' is invalid
+    // note: the required expression '(__u == __t)' is invalid
+    // note: the required expression '(__u != __t)' is invalid
+    // equality comparisons constraint is not satisfied
+
+    func(BClass{});  // VALID
+    // equality comparisons constraint is satisfied
+  }
+*/
+
+/*
+  // std::totally_ordered_with 
+  // '<', '>', '<=', '>=', '==', '!=' operations should be valid
+
+  #include <concepts>  // std::totally_ordered_with
+
+  void func(std::totally_ordered_with<int> auto){}
+
+  struct AStruct {};
+
+  int main()
+  {
+    func(34);   // VALID
+    func(2.4);  // VALID
+    func(66U);  // VALID
+
+    func(AStruct{});  // syntax error
+    // note: the required expression '(__t == __u)' is invalid
+    // note: the required expression '(__t != __u)' is invalid
+    // note: the required expression '(__u == __t)' is invalid
+    // note: the required expression '(__u != __t)' is invalid
+    // equality comparisons constraint is not satisfied
+  }
+*/
+
+/*
+  #include <concepts>  // std::copyable
+
+  void func(std::copyable auto){}
+
+  struct AStruct {
+    AStruct(const AStruct&) = delete;
+  };
+
+  struct BStruct {
+  private:
+    BStruct(const BStruct&);
+  };
+
+  struct CStruct {};
+
+  int main()
+  {
+    func(AStruct{});  // syntax error
+    // error: no matching function for call to 
+    // 'AStruct::AStruct(<brace-enclosed initializer list>)'
+
+    func(BStruct{});  // syntax error
+    // error: no matching function for call to 
+    // 'BStruct::BStruct(<brace-enclosed initializer list>)'
+
+    func(CStruct{});  // VALID
+  }
+*/
+
+/*
+  #include <concepts> // std::convertible_to
+  #include <string> 
+
+  void foo(const std::convertible_to<std::string> auto& x)
+  {
+    std::string str = x;
+  }
+
+  void bar(const auto& x)
+  requires std::convertible_to<decltype(x), std::string>
+  {
+    std::string str = x;
+  }
+
+  template <std::convertible_to<std::string> T>
+  void baz(const T& x)
+  {
+    std::string str = x;
+  }
+
+  template <typename T>
+  requires std::convertible_to<T, std::string>
+  void func(const T& x)
+  {
+    std::string str = x;
+  }
+
+  // foo, bar, baz, func functions are equivalent.
+*/
+
+/*
+  #include <concepts> 
+  #include <string>
+  #include <memory>
+
+  template <std::convertible_to<bool> T>
+  void foo(T x)
+  {
+    std::cout << static_cast<bool>(x) << '\n';
+  }
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    int ival{ 245 };
+
+    // ----------------------------------------------
+
+    foo(ival);      // output -> true
+
+    // ----------------------------------------------
+
+    foo(&ival);     // output -> true
+
+    // conversion from pointer types to bool is VALID
+
+    // ----------------------------------------------
+
+    foo(nullptr);   // syntax error 
+    // In substitution of 'template<class T> requires 
+    // convertible_to<T, bool> void foo(T) [with T = std::nullptr_t]'
+
+    // NO conversion from nullptr to bool.
+
+    // ----------------------------------------------
+
+    foo("hello world");  // output -> true
+
+    // ----------------------------------------------
+
+    foo(std::string{ "hello galaxy "});  // syntax error
+    //  In substitution of 'template<class T> requires 
+    // convertible_to<T, bool> void foo(T) 
+    // [with T = std::__cxx11::basic_string<char>]':
+
+    // NO implicit conversion from std::string to bool.
+
+    // ----------------------------------------------
+
+    foo(std::make_unique<int>(10));  // syntax error
+
+    // conversion from std::unique_ptr to bool is VALID
+    // but because of the type conversion operator function 
+    // is explicit, it will be a syntax error
+
+    // ----------------------------------------------
+  }
+*/
+
+/*
+  #include <concepts>   // std::copyable
+
+  template <std::copyable T>
+  class Myclass {};
+
+  struct AStruct {};
+
+  struct BStruct {
+    BStruct() = default;
+    BStruct(const BStruct&) = default;
+    BStruct& operator=(const BStruct&) = default; 
+  };
+
+  struct CStruct {
+    CStruct() = default;
+    CStruct(const CStruct&) = delete;
+    CStruct& operator=(const CStruct&) = delete;
+  };
+
+  struct DStruct {
+    DStruct() = default;
+    DStruct(const DStruct&) = default;
+    DStruct& operator=(const DStruct&) = default;
+    DStruct(DStruct&&) = delete;
+    DStruct& operator=(DStruct&&) = delete;
+  };
+
+  int main()
+  {
+    // ----------------------------------------------
+
+    Myclass<int> m1;      // VALID
+
+    // ----------------------------------------------
+
+    Myclass<AStruct> m2;  // VALID
+    // copy members are implicitly declared defaulted by the compiler
+
+    // ----------------------------------------------
+
+    Myclass<BStruct> m3;  // VALID
+    // copy members are user declared defaulted 
+
+    // ----------------------------------------------
+
+    Myclass<CStruct> m4;  // syntax error
+    // copy members are user declared deleted
+    // In substitution of 'template<class T> requires copyable<T> 
+    // class Myclass [with T = CStruct]'
+
+    // ----------------------------------------------
+
+    Myclass<DStruct> m5;  // syntax error
+    // copy members are user declared defaulted
+    // move members are user declared deleted
+
+    // std::copyable concept includes std::movable concepts constraints
+    // so it will be a sytax error 
+
+    // when move operatios wanted to be applied, because of 
+    // move members are deleted, fallback mechanism CAN NOT 
+    // be applied.
+
+    // from Microsoft's STL implementation
+    //  _EXPORT_STD template <class _Ty>
+    //  concept copyable = copy_constructible<_Ty>
+    //  && movable<_Ty>
+    //  && assignable_from<_Ty&, _Ty&>
+    //  && assignable_from<_Ty&, const _Ty&>
+    //  && assignable_from<_Ty&, const _Ty>;
+
+    // ----------------------------------------------
+  }
+*/
+
+/*
+  #include <iterator>
+  #include <vector>
+  #include <concepts> // std::indirect_unary_predicate
+
+  template <typename F, typename Iter>
+  requires std::indirect_unary_predicate<F, Iter>
+  void bar(F fn, Iter iter)
+  {
+    std::cout << *iter << " : " << fn(*iter) << '\n';
+  }
+  // indirect_unary_predicate : 
+  //  predicate can be called with *iter(int)
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    const auto pred = [](int x) { return x % 5 == 0; };
+    std::vector ivec{ 10, 11, 12, 13, 14, 15 };
+
+    for (auto iter = ivec.begin(); iter != ivec.end(); ++iter)
+      bar(pred, iter);
+
+    // output ->
+    //  10 : true
+    //  11 : false
+    //  12 : false
+    //  13 : false
+    //  14 : false
+    //  15 : true
+  }
+*/
+
+/*
+  #include <iterator>
+  #include <vector>
+  #include <concepts> // std::indirect_unary_predicate
+
+  template <typename F, typename Iter>
+  requires std::indirect_unary_predicate<F, Iter>
+  void bar(F fn, Iter iter)
+  {
+    std::cout << *iter << " : " << fn(*iter) << '\n';
+  }
+  // indirect_unary_predicate : 
+  //  predicate can be called with *iter(int)
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    const auto pred = [](int x) { return x % 5 == 0; };
+    std::vector<const char*> cstr_vec{ 
+      "hello", "world", "we", "are", "live", "from", "Istanbul"  };
+
+    for (auto iter = cstr_vec.begin(); iter != cstr_vec.end(); ++iter)
+      bar(pred, iter);  // syntax error
+    
+    // we can not pass const char* argument to pred callable
+    // because pred callable's argument type is int
+    // so sending *iter(const char*) type is syntax error
+  }
+*/
+
+/*
+  #include <concepts>  // std::invocable
+
+  void foo(std::invocable<int> auto fn, int x)
+  {
+    fn(x);
+  }
+
+  void bar(std::invocable<int, double> auto fn, int x)
+  {
+    fn(x, 1);
+  }
+
+  int main()
+  {
+    // ----------------------------------------------
+
+    foo([](int x){ return x * x; }, 10);
+
+    // [](int x){ return x * x; } closure object can be 
+    // called with int argument 
+
+    // ----------------------------------------------
+
+    bar([](int x){ return x * x; }, 10);  // syntax error
+
+    // [](int x){ return x * x; } closure object can be 
+    // called with int argument 
+    // but CAN NOT be called with (int, double) arguments
+
+    // ----------------------------------------------
+  }
+
+  // std::invocable is variadic parameter concept 
+  // (1st parameter is callable, 2nd parameter is variadic arguments)
+
+  // std::invocable<int> means callable must be called 
+  // with int argument.
+  // std::invocable<int, double> means callable must be called 
+  // with int as first and double as second argument.
+*/
+
+/*
+  #include <concepts>   // std::totally_ordered
+  #include <string>
+
+  // std::totally_ordered concept's constraints are 
+  // '<', '>', '<=', '>=', '==', '!=' operations should be VALID
+
+  template <typename T>
+  concept TotallyOrdered = requires(T x, T y) {
+    x == y;
+    x != y;
+    x < y;
+    x <= y;
+    x > y;
+    x >= y;
+  };
+
+  void foo(std::totally_ordered auto x){}
+
+  struct AStruct {};
+
+  struct BStruct {
+    auto operator<=>(const BStruct&) const = default;
+  };
+
+  struct CStruct {
+    bool operator==(const CStruct&) const;
+  };
+
+  int main()
+  {
+    // ----------------------------------------------
+
+    foo(1);   // VALID
+
+    // ----------------------------------------------
+    foo(std::string{ "hello world" });    // VALID
+
+    // ----------------------------------------------
+
+    foo(AStruct{});  // syntax error
+    // note: the required expression '(__t == __u)' is invalid
+    // note: the required expression '(__t != __u)' is invalid
+    // note: the required expression '(__u == __t)' is invalid
+    // note: the required expression '(__u != __t)' is invalid
+
+    // ----------------------------------------------
+
+    foo(BStruct{});  // VALID
+
+    // ----------------------------------------------
+
+    foo(CStruct{});  // syntax error
+    // note: the required expression '(__t < __u)' is invalid
+    // note: the required expression '(__t > __u)' is invalid
+    // note: the required expression '(__t <= __u)' is invalid
+    // note: the required expression '(__t >= __u)' is invalid
+    // note: the required expression '(__u < __t)' is invalid
+    // note: the required expression '(__u > __t)' is invalid
+    // note: the required expression '(__u <= __t)' is invalid
+    // note: the required expression '(__u >= __t)' is invalid
+
+    // ----------------------------------------------
+  }
+*/
+
+/*
+  #include <ranges>   // std::ranges::range 
+  #include <vector>
+
+  void func(const std::ranges::range auto&){}
+
+  // std::ranges::range concept's constraints are
+  // argument type must be sent ranges::begin and ranges::end functions
+
+  // https://en.cppreference.com/w/cpp/ranges/range
+  // template< class T >
+  // concept range = requires( T& t ) {
+  //     ranges::begin(t);
+  //     ranges::end (t);
+  // };
+
+  struct AStruct {};
+
+  struct BStruct {
+    int* begin();
+    int* end();
+  };
+
+  int main()
+  {
+    std::vector<int> ivec{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }; 
+
+    // ----------------------------------------------
+
+    auto beg = std::ranges::begin(ivec);  // VALID
+    auto end = std::ranges::end(ivec);    // VALID
+
+    // because of "beg" and "end" variables are valid
+    // vector<int> type is a valid type for std::ranges::range concept
+
+    func(ivec);  // VALID
+
+    // ----------------------------------------------
+
+    func(AStruct{});  // syntax error
+    // the required expression 'std::ranges::_Cpo::begin(__t)' 
+    // is invalid
+    // the required expression 'std::ranges::_Cpo::end(__t)' 
+    // is invalid
+
+    // ----------------------------------------------
+
+    func(BStruct{}); // VALID
 
     // ----------------------------------------------
   }
