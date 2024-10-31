@@ -343,9 +343,9 @@
 */
 
 /*
-                  -------------------------
-                  | refactoring functions |
-                  -------------------------
+                    -------------------------
+                    | refactoring functions |
+                    -------------------------
 */
 
 /*
@@ -513,3 +513,291 @@
   // can have `noexcept` specifier
   // and `noexcept(false)` is also valid
 */
+
+/*
+      -----------------------------------------------------------
+      | (template argument deduction) and (auto type deduction) |
+      -----------------------------------------------------------
+*/
+
+/*
+  template <typename T>
+  void func(T, T) {}
+
+  int main()
+  {
+    func(5, 5);     // VALID
+
+    func(5, 3.4);   // syntax error
+    // error: no matching function for call to 'func(int, double)'
+    // note: deduced conflicting types for parameter 'T' 
+    // ('int' and 'double')
+
+    func<double>(5, 3.4);   // VALID
+    // defining template argument type explicitly 
+  }
+*/
+
+/*
+  template <typename T>
+  void foo(T, T) {}
+
+  template <typename T>
+  void func(T&, T&) {}
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    foo("hello", "world");    // VALID
+    foo("hello", "universe"); // VALID
+
+    // T -> const char* (array to pointer conversion)
+
+    // --------------------------------------------------
+
+    func("hello", "world");   // VALID
+    // T -> const char[6]
+
+    func("hello", "universe");  // syntax error
+    // error: no matching function for call to 
+    // 'func(const char [6], const char [9])'
+
+    // because of T& parameter type,
+    // array to pointer conversion does not happen
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  - auto type deduction and template argument deduction are same.
+    (1 exception -> initializer_list)
+
+  - in template argument deduction, 
+    deduction is done for template parameter.
+    not the function parameter variable.
+
+    template <typename T>
+    void func(T x);
+    - deduction will be done for 'T' not 'x'
+*/
+
+/*
+  template <typename T>
+  void func(T x);
+
+  int main()
+  {
+    func(10);       // template argument deduction
+    auto val = 10;  // auto type deduction
+  }
+*/
+
+/*
+  template <typename T>
+  void func(T& r);
+
+  int main()
+  {
+    int arr[20]{};
+
+    func(arr);
+    // deduction for T -> int[20]
+
+    // compiler written specialization 
+    // void func(int (&r)[20]);
+
+
+    auto& r_arr = arr; 
+    // deduction for auto -> int[20] 
+    // (same as template argument deduction)
+  }
+*/
+
+/*
+  template <typename T>
+  void func(T r);
+
+  int main()
+  {
+    auto elem = { 1, 2, 3, 4, 5 };
+    // deduction for auto -> std::initializer_list<int>
+
+    func({1, 2, 3, 4, 5});  // syntax error
+    // error: no matching function for call to 
+    // 'func(<brace-enclosed initializer list>)'
+
+    // only exception between auto type deduction and 
+    // template argument deduction
+  }
+*/
+
+/*
+  template <typename T>
+  void func(T&& x);
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    int x = 5;
+    func(x);  
+    // when L value is passed to a function
+    // T will be deduced as L value reference type
+
+    // deduction for T -> int& 
+    // int& && -> int& (reference collapse)
+    // 'x'(parameter variable) data type is int&
+
+    // --------------------------------------------------
+
+    func(10); 
+    // when R value is passed to a function
+    // T will not be deduce to a reference type
+
+    // deduction for T -> int
+    // no reference collapsing happens
+    // 'x'(parameter variable) data type is int&&
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  template <typename T>
+  void func(T&& param_1, T param_2);
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    int a{}, b{};
+
+    func(a, b); // syntax error
+    // for 1st parameter -> deduction for T -> int&
+    // for 2nd parameter -> deduction for T -> int
+
+    // --------------------------------------------------
+
+    func(10, 20); // VALID
+    // for 1st parameter -> deduction for T -> int
+    // for 2nd parameter -> deduction for T -> int
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  template <typename T>
+  class TypeTeller;
+
+  template <typename T>
+  void func_Rref(T&& Rref_param)
+  {
+    TypeTeller<T> t;
+  }
+
+  template <typename T>
+  void func_Lref(T& Lref_param)
+  {
+    TypeTeller<T> t;
+  }
+
+  template <typename T>
+  void func_NOref(T& NOref_param)
+  {
+    TypeTeller<T> t;
+  }
+
+  int bar(int) { return 1; }
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    int ival{};
+    func_Rref(ival); // syntax error
+    //  error: 'TypeTeller<int&> t' has incomplete type
+    // deduction for T -> int& (also TypeTeller<int&>)
+
+    // --------------------------------------------------
+
+    func_Rref(12); // syntax error
+    //  error: 'TypeTeller<int> t' has incomplete type
+    // deduction for T -> int (also TypeTeller<int>)
+
+    // --------------------------------------------------
+
+    int arr[20]{};
+    func_Lref(arr); // syntax error
+    // error: 'TypeTeller<int [20]> t' has incomplete type
+    // deduction for T -> int[20] (also TypeTeller<int[20]>)
+
+    // --------------------------------------------------
+
+    func_NOref(bar); // syntax error
+    // error: 'TypeTeller<int(int)> t' has incomplete type
+    // deduction for T -> int(int) (also TypeTeller<int(int)>)
+
+    // "bar" will decay to a pointer(function pointer) type
+
+    // --------------------------------------------------
+
+    func_Lref(bar); // syntax error
+    // error: 'TypeTeller<int(int)> t' has incomplete type
+    // deduction for T -> int(int) (also TypeTeller<int(int)>)
+
+    // "Lref_param" parameter variable's type is int(&)(int) 
+    
+    // --------------------------------------------------
+  }
+*/
+
+/*
+                      ----------------------
+                      | std::type_identity |
+                      ----------------------
+*/
+
+/*
+  #include <type_traits>  // std::type_identity
+
+  template <typename T>
+  struct TypeIdentity {
+    using type = T;
+  };
+
+  template <typename T>
+  using TypeIdentity_t = TypeIdentity<T>::type;
+
+  // we want 
+  //  - deduction for first parameter but not for the second one
+  //  - second parameter's type will be same as first parameter's type
+
+  template <typename T>
+  void func(T param_1, TypeIdentity_t<T> param_2);
+
+  int main()
+  {
+    TypeIdentity_t<int> x{};
+    // "x"'s data type is int
+
+    func(5.2, 3); // VALID
+    // deduction for T -> double
+    // param_1's data type is double
+    // param_2's data type is double
+  }
+*/
+
+/*
+                    -------------------------
+                    | `std::iota` algorithm | 
+                    -------------------------
+*/
+
+/*
+  #include <numeric>  // std::iota
+*/
+
+// Lesson_20 - 01:36:00

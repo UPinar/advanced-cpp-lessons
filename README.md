@@ -90,6 +90,11 @@
 
 ### [Attributes](https://github.com/UPinar/AdvancedCPPLessons/tree/main/attributes)
   - `[[nodiscard]]` attribute
+  - `[[deprecated]]` attribute
+  - `[[likely]]` and `[[unlikely]]` attributes 
+  - `[[maybe_unused]]` attribute
+  - `[[noreturn]] ` attribute
+  - `[[fallthrough]]` attribute
 
 ### [Concepts](https://github.com/UPinar/AdvancedCPPLessons/tree/main/concepts)
   - `requires` clause
@@ -120,3 +125,6 @@
   - lazy initialization
   - refactoring functions
   - default declaration of special member functions
+  - template argument deduction and `auto` type deduction
+  - `std::type_identity`
+  - `std::iota` algorithm
