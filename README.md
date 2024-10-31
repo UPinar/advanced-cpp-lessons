@@ -90,8 +90,13 @@
 
 ### [Attributes](https://github.com/UPinar/AdvancedCPPLessons/tree/main/attributes)
   - `[[nodiscard]]` attribute
+  - `[[deprecated]]` attribute
+  - `[[likely]]` and `[[unlikely]]` attributes 
+  - `[[maybe_unused]]` attribute
+  - `[[noreturn]] ` attribute
+  - `[[fallthrough]]` attribute
 
-### [Concepts](https://github.com/UPinar/AdvancedCPPLessons/tree/main/concepts)
+### [`concepts` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/concepts_module)
   - `requires` clause
   - named constraints (`concept`)
   - `requires` expression
@@ -115,8 +120,15 @@
 
 ### [`bit` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/bit_module)
 
+### [`ranges` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/ranges_module)
+
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
   - lazy initialization
   - refactoring functions
   - default declaration of special member functions
+  - template argument deduction and `auto` type deduction
+  - `std::type_identity`
+  - `std::iota` algorithm
+  - `namespace` alias
+  - ADL and two step lookup
