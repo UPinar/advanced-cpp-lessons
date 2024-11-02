@@ -950,3 +950,165 @@
   // if "begin" can be called with ADL, it will be called
   // if not "std::begin" will be called,
 */
+
+/*
+                        ---------------
+                        | std::invoke | 
+                        ---------------
+*/
+
+/*
+  #include <functional>  // std::invoke
+
+  int func(int x, int y)
+  {
+    std::cout << "func(int, int) called\n";
+    return x * y + 5;
+  }
+
+  int main()
+  {
+    auto ret_val = std::invoke(func, 10, 20);
+    std::cout << "ret_val = " << ret_val << '\n';
+    // output ->
+    //  func(int, int) called
+    //  ret_val = 205
+  }
+*/
+
+/*
+  #include <functional>  // std::invoke
+
+  class Myclass {
+  public:
+    int foo(int x) 
+    { 
+      std::cout << "Myclass::foo(int x), x = " << x << '\n';
+      return x * 1000;
+    }
+  };
+
+  int main()
+  {
+    using namespace std;
+
+    Myclass mx;
+    int ival{ 22 };
+    auto ret_val = invoke(&Myclass::foo, mx, ival);
+    // 2nd parameter is the hidden parameter of the member function
+
+    cout << "ret_val = " << ret_val << '\n';
+    // output ->
+    //  Myclass::foo(int x), x = 22
+    //  ret_val = 22000
+  }
+*/
+
+/*
+  #include <functional>  // std::invoke
+
+  class Myclass {
+  public:
+    int foo(int x) 
+    { 
+      std::cout << "Myclass::foo(int x), x = " << x << '\n';
+      return x * 1000;
+    }
+  };
+
+  int main()
+  {
+    Myclass mx;
+
+    // --------------------------------------------------
+
+    int (Myclass::*fptr)(int) = &Myclass::foo;
+    // auto = &Myclass::foo;
+    (mx.*fptr)(22);
+    // output -> Myclass::foo(int x), x = 22
+
+    // ".*" member (member access through pointer to member) operator's 
+    // precedence is lower than "()" (function call operator)
+
+    // --------------------------------------------------
+
+    // calling a member function with ".*" operator 
+    // creates a verbose code
+
+    Myclass* p_m = new Myclass;
+    auto fp = &Myclass::foo;
+
+    ((*p_m).*fp)(33);
+    // output -> Myclass::foo(int x), x = 33
+    
+    delete p_m;
+
+    // --------------------------------------------------
+
+    // when a function will be called
+    // with an address of a non-static member function by using 
+    // a function pointer, better using std::invoke
+
+    Myclass mx2;
+    Myclass* p_mx3 = new Myclass;
+    auto fp2 = &Myclass::foo;
+
+    std::invoke(fp2, mx2, 44);
+    // output -> Myclass::foo(int x), x = 44
+
+    std::invoke(fp2, *p_mx3, 55);  
+    // output -> Myclass::foo(int x), x = 55
+    std::invoke(fp2, p_mx3, 66);  
+    // output -> Myclass::foo(int x), x = 66
+
+    // we can use "*p_mx3" or "p_mx3" with std::invoke
+
+    delete p_mx3;
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <functional>   // std::invoke
+
+  struct Mystruct {
+    int m_x{ 10 }, m_y{ 20 };
+  };
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    Mystruct mystruct_obj;
+    &mystruct_obj.m_x;  
+    // data type of "&mystruct_obj.m_x" expression is `int*`
+
+    int* type_1 = &mystruct_obj.m_x;
+
+    // --------------------------------------------------
+
+    &Mystruct::m_x; // data member pointer
+    // data type of "&Mystruct::m_x" expression is `int Mystruct::*`
+
+    int Mystruct::* data_member_ptr_x = &Mystruct::m_x;
+
+    // --------------------------------------------------
+
+    // how to reach "mystruct_obj" object's "m_x" data member
+    // by using "data_member_ptr_x" data member pointer ?
+
+    mystruct_obj.*data_member_ptr_x = 44;
+    std::cout << mystruct_obj.m_x << '\n';  // output -> 44
+
+    // --------------------------------------------------
+
+    // std::invoke can also be used with data member pointer
+
+    std::invoke(data_member_ptr_x, mystruct_obj) = 55;
+
+    std::cout << mystruct_obj.m_x << '\n';  // output -> 55
+
+    // --------------------------------------------------
+  }
+*/

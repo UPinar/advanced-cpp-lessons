@@ -121,6 +121,9 @@
 ### [`bit` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/bit_module)
 
 ### [`ranges` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/ranges_module)
+  - rangified algorithms
+  - projection in ranges::algorithms
+  - `std::ranges::views`
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
@@ -132,3 +135,4 @@
   - `std::iota` algorithm
   - `namespace` alias
   - ADL and two step lookup
+  - `std::invoke`
