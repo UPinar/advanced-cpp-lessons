@@ -596,6 +596,57 @@
 */
 
 /*
+            <---- check range_concepts.png ---->
+         <---- check range_generic_functions.png ---->
+        <---- check range_generic_functions_2.png ---->
+        <---- check range_generic_functions_3.png ---->
+        <---- check range_generic_functions_4.png ---->
+        <---- check range_generic_functions_5.png ---->
+      <---- check range_algorithms_return_types.png ---->
+*/
+
+/*
+  #include <string_view>
+  #include <vector>
+  #include <algorithm>
+
+  void print(std::string_view msg, auto beg, auto end)
+  {
+    std::cout << msg;
+
+    for (auto pos = beg; pos != end; ++pos)
+      std::cout << ' ' << *pos;
+
+    std::cout << '\n';
+  }
+
+  int main()
+  {
+    using namespace std;
+
+    vector inColl{ 1, 2, 3, 4, 5, 6, 7 };
+    vector outColl{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+    auto res = ranges::transform( inColl, 
+                                  outColl.begin(),
+                                  [](auto val){ return val * val; });
+
+
+    print("processed in: ", inColl.begin(), res.in);
+    // output -> processed in:  1 2 3 4 5 6 7
+
+    print("rest of in: ", res.in, inColl.end());
+    // output -> rest of in:
+
+    print("written out: ", outColl.begin(), res.out);
+    // output -> written out: 1 4 9 16 25 36 49
+
+    print("rest of out: ", res.out, outColl.end());
+    // output -> rest of out: 8 9 10
+  }
+*/
+
+/*
               -----------------------------------
               | projection in ranges algorithms |
               -----------------------------------
@@ -1377,3 +1428,793 @@
     // --------------------------------------------------
   }
 */
+
+/*
+  #include <ranges>
+  #include <vector>
+
+  int main()
+  {
+    std::vector ivec{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+    auto view_obj = std::views::take(ivec, 5);
+
+    std::cout << "sizeof(view_obj) = " << sizeof(view_obj) << '\n';
+    // output -> sizeof(view_obj) = 16
+    // holds 2 pointers
+
+    static_assert(std::ranges::view<decltype(view_obj)>);
+    // return type of std::views::take is satisfying
+    // std::ranges::view concept
+  }
+*/
+
+/*
+  - range adaptörleri, öyle bir foksiyon nesnesi(functin object) ki,
+    input olarak bir ya da birden fazla range alıp, belirli 
+    niteliklere sahip bir range döndürüyor. Bu niteliklerin 
+    en önemlisi döndürülen range'in range::view konseptini 
+    sağlaması(desteklemesi) dolayısıyla bir view döndürüyor da 
+    denilebilir.
+*/
+
+/*
+                      -------------------
+                      | lazy evaluation |
+                      -------------------
+*/
+
+/*
+  #include <ranges>
+  #include <vector>
+
+  int main()
+  {
+    std::vector ivec{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+    // --------------------------------------------------
+    auto view_obj = std::views::filter(ivec, [](int x){
+      std::cout << "- (1) lambda function called\n";
+      return x % 3 == 0;
+    });
+
+    std::cout << "[0] main continues\n";
+    auto iter = view_obj.begin();
+    std::cout << "[1] main continues\n";
+
+    // output ->
+    //  [0] main continues
+    //  - (1) lambda function called
+    //  - (1) lambda function called
+    //  - (1) lambda function called
+    //  [1] main continues
+
+    // to find view_obj.begin() iterator
+    // needs to find the first element that satisfies the condition
+    // (x % 3 == 0) in the ivec vector.
+    // so lambda function is called for { 1, 2, 3 } elements.
+    // lazy evaluation (not evaluated until needed)
+    
+
+    // --------------------------------------------------
+
+    std::cout << "[2] main continues\n";
+
+    auto view_obj2 = std::views::filter(ivec, [](int x){
+      std::cout << "- (2) lambda function called\n";
+      return x % 4 == 0;
+    });
+
+    auto iter2 = view_obj2.begin();
+
+    std::cout << "[3] main continues\n";
+
+    // output ->
+    //  [2] main continues
+    //  - (2) lambda function called
+    //  - (2) lambda function called
+    //  - (2) lambda function called
+    //  - (2) lambda function called
+    //  [3] main continues
+
+    // to find view_obj.begin() iterator
+    // needs to find the first element that satisfies the condition
+    // (x % 4 == 0) in the ivec vector.
+    // so lambda function is called for { 1, 2, 3, 4 } elements.
+    // lazy evaluation (not evaluated until needed)
+  }
+*/
+
+/*
+  #include <ranges>
+  #include <algorithm>  // std::copy_if, std::transform
+  #include <vector>
+  #include <iterator>   // std::back_inserter
+
+  int main()
+  {
+    using namespace std;
+
+    vector ivec{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    vector<int> dest_vec;
+
+    // we want to write square of the elements that are even
+    // from ivec to the dest_vec.
+
+    // --------------------------------------------------
+
+    // ------- WAY 1 (using old algorithms) -------
+    vector<int> temp;
+
+    copy_if(ivec.begin(), ivec.end(), back_inserter(temp), 
+            [](int x){ return x % 2 == 0; });
+
+    transform(temp.begin(), temp.end(), back_inserter(dest_vec),
+              [](int x){ return x * x; });
+
+    for (auto elem : dest_vec)
+      cout << elem << ' ';
+    // output -> 4 16 36 64 100
+
+    cout << '\n';
+
+    // --------------------------------------------------
+
+    // ------- WAY 2 (using ranges algorithms) -------
+
+    vector<int> dest_vec2;
+
+    auto view_obj = 
+          ivec  | views::filter([](int x){ return x % 2 == 0; }) 
+                | views::transform([](int x){ return x * x; });
+
+    ranges::copy(view_obj, back_inserter(dest_vec2));
+
+    for (auto elem : dest_vec2)
+      cout << elem << ' ';
+    // output -> 4 16 36 64 100
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <ranges>
+  #include "../nutility.h"  // isprime
+
+  int main()
+  {
+    // std::views::iota() -> range factory 
+    // did not get a range as an argument raturns a range
+
+    // --------------------------------------------------
+
+    auto view_range_obj = 
+        std::views::iota(10) | std::views::take(5);
+
+    for (auto elem : view_range_obj)
+      std::cout << elem << ' ';
+    // output -> 10 11 12 13 14
+
+    std::cout << '\n';
+
+    // --------------------------------------------------
+
+    for (auto elem : std::views::iota(10, 20))
+      std::cout << elem << ' ';
+    // output -> 10 11 12 13 14 15 16 17 18 19
+
+    std::cout << '\n';
+
+    // --------------------------------------------------
+    
+    auto view_range_obj2 = 
+                std::views::iota(10, 100)   | 
+                std::views::reverse         |
+                std::views::filter(isprime);
+      
+    for (auto elem : view_range_obj2)
+      std::cout << elem << ' ';
+    // output -> 
+    // 97 89 83 79 73 71 67 61 59 53 47 43 41 37 31 29 23 19 17 13 11
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <ranges>
+  #include "../nutility.h"  // isprime
+
+  int main()
+  {
+    auto ivec = 
+          std::views::iota(10, 100)   | 
+          std::views::reverse         |
+          std::views::filter(isprime) |
+          std::ranges::to<std::vector>(); // C++23 (std::ranges::to)
+
+    std::cout << "ivec.size() = " << ivec.size() << '\n';
+    // output -> ivec.size() = 21
+
+    for (auto elem : ivec)
+      std::cout << elem << ' ';
+    // output ->
+    // 97 89 83 79 73 71 67 61 59 53 47 43 41 37 31 29 23 19 17 13 11
+  }
+*/
+
+/*
+  #include <ranges>
+  // ranges::input_range, range::range_value_t, 
+  // ranges::begin, ranges::end
+  #include <vector>
+
+  template <std::ranges::input_range Range>
+  std::ranges::range_value_t<Range> get_min(Range&& rng)
+  {
+    if (std::ranges::empty(rng)){
+      return std::ranges::range_value_t<Range>{};
+    }
+
+    auto pos = std::ranges::begin(rng);
+    auto min_val = *pos;
+
+    while (++pos != std::ranges::end(rng)){
+      if (*pos < min_val)
+        min_val = *pos;
+    }
+    return min_val;
+  }
+
+  int main()
+  {
+    std::vector ivec{ 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+    auto min_val = get_min(ivec);
+
+    std::cout << "min_val = " << min_val << '\n';
+    // output -> min_val = 1
+  } 
+*/
+
+/*
+  #include <ranges>
+  // ranges::views::repeat, ranges::views::take
+  #include <vector>
+
+  int main()
+  {
+    std::views::repeat(5) | std::views::take(10);
+    // { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 }
+
+    std::views::empty<int>;
+    // {}
+  }
+*/
+
+/*
+                            ----------
+                            | common |
+                            ----------
+*/
+
+/*
+  #include <ranges>
+
+  template <typename Iter, typename Sentinel>
+  void call_argo(Iter beg, Sentinel end)
+  {
+    auto vw = std::views::common(std::ranges::subrange(beg, end));
+    // ranges::subrange returns a range,
+    // ranges::common converts the range to a common range
+
+    // vw is a common range and can be passed to functions
+    // that require a common range as an argument.
+  }
+*/
+
+/*
+  ranges::common is checking 
+    - begin and end iterator types are same or different
+    - the range is a view or not
+
+  common range is using common_iterator type
+*/
+
+/*
+  #include <list>
+  #include <ranges>
+
+  int main()
+  {
+    std::list<int> ilist(10);
+    auto take_obj = std::views::take(ilist, 5);
+    auto iota_obj = std::views::iota(35, 45);
+
+    // --------------------------------------------------
+
+    auto x = std::views::common(ilist);
+    // x's type is a specialization of std::ranges::ref_view
+
+    // ilist's begin and end iterator types are same 
+    // but ilist is not a view 
+    // so x's type is a specialization of std::ranges::ref_view
+
+    // --------------------------------------------------
+
+    auto y = std::views::common(take_obj);
+    // y's type is a specialization of std::ranges::common_view
+
+    // take_obj's begin and end iterator types are different 
+    // but take_obj is a view
+    // so y's type is a specialization of std::ranges::common_view
+
+    // --------------------------------------------------
+
+    auto z = std::views::common(iota_obj);
+    // z's type is a specialization of std::ranges::iota_view
+
+    // iota_obj's begin and end iterator types are same
+    // and iota_obj is a view
+    // so z's type is a specialization of std::ranges::iota_view
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <ranges>     // ranges::subrange, ranges::views::common
+  #include <vector>
+  #include <algorithm>  // std::count
+
+  template <auto end_val>
+  struct Sentinel {
+    bool operator==(auto pos) const { return *pos == end_val; }
+  };
+
+  int main()
+  {
+    using namespace std;
+
+    vector<int> ivec(20);
+    ivec[5] = -1;
+    ivec[1] = 3;
+
+    ranges::subrange sr(ivec.begin(), Sentinel<-1>{});
+    // { 0, 3, 0, 0, 0 }
+
+    auto common_vw = views::common(sr);
+    // sr's begin and end iterator types are different
+    // sr is a view
+    // common_vw's type std::ranges::common_view<>
+
+    auto N = count(common_vw.begin(), common_vw.end(), 0);
+
+    cout << "N = " << N << '\n';
+    // N = 4
+    // There are 4 zeros in the subrange
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges> 
+  #include <numeric>  // std::accumulate
+
+  int main()
+  {
+    std::vector ivec{ 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37 };
+
+    auto view_obj = 
+        ivec | std::views::filter([](int x){ return x % 10 == 7; });
+    // { 7, 17, 37 }
+
+    auto sum = std::accumulate(view_obj.begin(), view_obj.end(), 0);
+    std::cout << sum << '\n'; // output -> 61  
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges>
+  #include <numeric>  // std::accumulate
+
+  int main()
+  {
+    std::vector ivec{ 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37 };
+
+    auto rng = 
+        ivec | std::views::take_while([](int x){ return x < 20; });
+      
+    for (auto val : rng)
+      std::cout << val << ' ';
+    // output -> 2 3 5 7 11 13 17 19
+
+    std::cout << '\n';
+
+    // --------------------------------------------------
+
+    std::accumulate(rng.begin(), rng.end(), 0); // syntax error
+    // because of "rng" is not a common range, 
+    // "rng.begin()" and "rng.end()" expressions types are different
+
+    // --------------------------------------------------
+
+    static_assert(std::ranges::common_range<decltype(rng)>);
+    // error: static assertion failed 
+
+    // rng's type is not satisfying ranges::common_range concept
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <list>
+  #include <ranges> 
+  // std::ranges::common_range, std::views::take, 
+  // std::views::drop_while
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    static_assert(std::ranges::common_range<std::vector<int>>);
+    // ranges::common_range concept is satisfied
+
+    static_assert(std::ranges::common_range<std::list<int>>); 
+    // ranges::common_range concept is satisfied
+
+    // --------------------------------------------------
+
+    std::vector ivec{ 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37 };
+
+    auto rng = ivec | std::views::take(5);
+
+    static_assert(std::ranges::common_range<decltype(rng)>);
+    // ranges::common_range concept is satisfied
+
+    // --------------------------------------------------
+
+    auto f = [](int x){ return x < 10; };
+    auto rng2 = ivec | std::views::drop_while(f);
+
+    for (auto val : rng2)
+      std::cout << val << ' ';
+    // output -> 11 13 17 19 23 29 31 37
+
+    static_assert(std::ranges::common_range<decltype(rng2)>);
+    // ranges::common_range concept is satisfied
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <numeric>  // std::accumulate
+  #include <ranges> 
+  // views::take_while, views::common, ranges::common_range
+
+  int main()
+  {
+    std::vector ivec{ 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37 };
+
+    auto rng = 
+        ivec | std::views::take_while([](int x){ return x < 20; });
+      
+    for (auto val : rng)
+      std::cout << val << ' ';
+    // output -> 2 3 5 7 11 13 17 19
+
+    std::cout << '\n';
+      
+    // --------------------------------------------------
+
+    static_assert(std::ranges::common_range<decltype(rng)>);
+    // error: static assertion failed 
+
+    auto common_rng = std::views::common(rng);
+    static_assert(std::ranges::common_range<decltype(common_rng)>);
+    // ranges::common_range concept is satisfied
+
+    auto sum = std::accumulate( common_rng.begin(), 
+                                common_rng.end(), 
+                                0);
+
+    std::cout << "sum = " << sum << '\n'; 
+    // output -> sum = 77
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <numeric>  // std::accumulate
+  #include <ranges> 
+  // views::take_while, views::common, ranges::common_range
+
+  int main()
+  {
+    std::vector ivec{ 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37 };
+
+    auto rng = 
+        ivec  | std::views::take_while([](int x){ return x < 10; })
+              | std::views::common;
+      
+    for (auto val : rng)
+      std::cout << val << ' ';
+    // output -> 2 3 5 7
+    std::cout << '\n';
+      
+    static_assert(std::ranges::common_range<decltype(rng)>);
+    // ranges::common_range concept is satisfied
+
+    auto sum = std::accumulate(rng.begin(), rng.end(), 0);
+
+    std::cout << "sum = " << sum << '\n'; 
+    // output -> sum = 17
+  }
+*/
+
+/*
+                          ------------
+                          | subrange |
+                          ------------
+*/
+
+/*
+  - iki iterator argüman olarak subrange adaptörüne gönderip
+    range konseptini sağlayan bir range nesnesi elde edilir.
+*/
+
+/*
+  #include <vector>
+  #include <ranges>  // ranges::subrange
+  #include <format>
+
+  int main()
+  {
+    using namespace std;
+
+    vector ivec{ 1, 2, 3, 4, 5 };
+
+    // --------------------------------------------------
+
+    ranges::subrange sub_range1{ ivec };
+
+    cout << "sizeof(sub_range1) = " << sizeof(sub_range1) << '\n';
+    // output -> sizeof(sub_range1) = 16
+
+    static_assert(ranges::view<decltype(sub_range1)>);
+    // ranges::subrange type is satisfying ranges::view concept
+    // ranges::subrange is a view
+
+    for (const auto elem : sub_range1)
+      cout << elem << ' ';
+    // output -> 1 2 3 4 5
+    cout << '\n';
+
+    // --------------------------------------------------
+
+    auto& r1 = sub_range1.front();
+    auto& r2 = sub_range1.back();
+
+    cout << format("r1 = {}, r2 = {}\n", r1, r2);
+    // output -> r1 = 1, r2 = 5
+
+    // --------------------------------------------------
+
+    ranges::subrange sub_range2{ ivec.begin(), ivec.end() };
+
+    for (const auto elem : sub_range2)
+      cout << elem << ' ';
+    // output -> 1 2 3 4 5
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges>  // ranges::subrange
+  #include <format>
+
+  int main()
+  {
+    using namespace std;
+
+    vector ivec{ 1, 2, 3, 4, 5 };
+
+    // --------------------------------------------------
+
+    ranges::subrange sub_range1{ ivec };
+
+    auto& r1 = sub_range1.front();
+    auto& r2 = sub_range1.back();
+
+    r1 += 300;
+    r2 += 300;
+
+    for (const auto elem : ivec)
+      cout << elem << ' ';
+    // output -> 301 2 3 4 305
+
+    // front() and back() functions return a reference to the
+    // first and last elements of the vector
+
+    // -------------------------------------------------- 
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges>
+
+  template <auto end_val>
+  class Sentinel {
+  public:
+    bool operator==(auto x) const { return *x == end_val; }
+  };
+
+  int main()
+  {
+    using namespace std;
+
+    vector<int> ivec{ 1, 3, 5, 7, 2, 9 };
+    ranges::subrange sub_range(ivec.begin(), Sentinel<7>{});
+
+    for (const auto val : sub_range)
+      cout << val << ' ';
+    // output -> 1 3 5
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges> 
+  // ranges::iota_view, ranges::range, ranges::subrange, ranges::to
+
+  template <auto end_val>
+  class Sentinel {
+  public:
+    bool operator==(auto x) const { return *x == end_val; }
+  };
+
+  void print(std::ranges::range auto&& r)
+  {
+    for (const auto& val : r)
+      std::cout << val << ' ';
+    std::cout << '\n';
+  }
+
+  int main()
+  {
+    //  --------------------------------------------------
+
+    auto vw = std::ranges::iota_view{ 0, 10 };
+    std::vector vec(vw.begin(), vw.begin() + 10);
+
+    auto vec2 = 
+      std::ranges::iota_view{ 0, 10 } | 
+      std::ranges::to<std::vector>();
+
+    // vec1 and vec2 are equivalent.
+
+    // --------------------------------------------------
+
+    std::ranges::subrange s1{ vec.begin(), vec.begin() + 7 };
+    std::ranges::subrange s2{ vec.begin(), Sentinel<5>{} };
+
+    print(s1);  // output -> 0 1 2 3 4 5 6
+    print(s2);  // output -> 0 1 2 3 4
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <forward_list>
+  #include <ranges>   // std::ranges::sized_range
+
+  int main()
+  {
+    using namespace std;
+
+    static_assert(std::ranges::sized_range<std::vector<int>>);
+    // std::vector<int> type is satisfying 
+    // std::ranges::sized_range concept
+
+    static_assert(std::ranges::sized_range<std::forward_list<int>>);
+    // error : static assertion failed
+    // std::forward_list<int> type is NOT satisfying
+    // std::ranges::sized_range concept
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges>   // ranges::subrange
+  #include <list>
+  #include <iterator> // std::next, std::prev
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    std::vector ivec{ 2, 3, 5, 7, 11, 13 };
+
+    std::ranges::subrange subrange_vec{ std::next(ivec.begin()),
+                                        std::prev(ivec.end()) };  
+
+    constexpr bool b1 = 
+      std::ranges::sized_range<decltype(subrange_vec)>;
+    // b1 -> true
+
+    // --------------------------------------------------
+
+    std::list ilist{ 2, 3, 5, 7, 11, 13 };
+
+    std::ranges::subrange subrange_list1{ ilist.begin(),
+                                          ilist.end(),
+                                          ilist.size() };
+
+    std::ranges::subrange subrange_list2{ std::next(ilist.begin()),
+                                          std::prev(ilist.end())};
+
+
+    constexpr bool b2 = 
+      std::ranges::sized_range<decltype(subrange_list1)>;
+    // b2 -> true
+    
+    constexpr bool b3 =
+      std::ranges::sized_range<decltype(subrange_list2)>;
+    // b3 -> true
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <ranges>   // std::ranges::subrange
+  #include <concepts> // std::same_as
+
+  // the type of subranges depends only on the type of the iteratiors
+  // wheter or not size() is provided
+
+  int main()
+  {
+    int arr1[10]{};
+    int arr2[20]{};
+
+    using subrange_type1 = decltype(std::ranges::subrange{ arr1 });
+    using subrange_type2 = decltype(std::ranges::subrange{ arr2 });
+
+    static_assert(std::same_as<subrange_type1, subrange_type2>);
+  }
+*/
+
+/*
+  #include <ranges>  
+  // ranges::subrange, ranges::random_access_range
+
+  template <std::ranges::random_access_range Range>
+  auto left_half(Range rng)
+  {
+    return std::ranges::subrange(
+              std::begin(rng), 
+              std::begin(rng) + std::ranges::size(rng) / 2));
+  }
+
+  template<std::ranges::random_access_range Range>
+  auto right_half(Range rng)
+  {
+    return std::ranges::subrange(
+              std::begin(rng) + std::ranges::size(rng) / 2,
+              std::end(rng));
+  }
+*/
+
