@@ -96,7 +96,7 @@
   - `[[noreturn]] ` attribute
   - `[[fallthrough]]` attribute
 
-### [`concepts` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/concepts_module)
+### [`<concepts>` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/concepts_module)
   - `requires` clause
   - named constraints (`concept`)
   - `requires` expression
@@ -118,9 +118,9 @@
   - `source_location` module 
   - `using` enum declaration
 
-### [`bit` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/bit_module)
+### [`<bit>` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/bit_module)
 
-### [`ranges` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/ranges_module)
+### [`<ranges>` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/ranges_module)
   - rangified algorithms
   - projection in ranges::algorithms
   - `std::ranges::views`

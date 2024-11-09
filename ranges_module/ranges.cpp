@@ -2218,3 +2218,736 @@
   }
 */
 
+/*
+  #include <vector>
+  #include <algorithm>  
+  // ranges::generate, ranges::sort, ranges::lower_bound
+  #include <format>
+  #include "../nutility.h"
+
+  using i_vec = std::vector<int>;
+  auto get_vec(std::size_t size)
+  {
+    i_vec vec(size);
+    std::ranges::generate(vec, Irand{ -10'000, 10'000 });
+
+    return vec;
+  }
+
+  int main()
+  {
+    using namespace std;
+
+    auto vec1 = get_vec(10'000u);
+    auto vec2 = get_vec(10'000u);
+    auto vec3 = get_vec(10'000u);
+
+    int sum = 12'345;
+
+    ranges::sort(vec3);  // O(NlogN)
+
+    for (int i : vec1) {
+      for (int j : vec2) {
+        if (auto iter = ranges::lower_bound(vec3, sum - (i + j));
+            iter != vec3.end()) {
+          cout << format("{} + {} + {} = {}\n", i, j, *iter, sum);
+          return 0;
+        }
+      }
+    }
+    cout << "not found\n";
+
+    // algorithm complexity O(N^2logN)
+  }
+*/
+
+/*
+  borrowed range : a range whose iterators will not dangle -
+    - an L value range
+    - an R value range with enable_borrowed_range = true
+*/
+
+/*
+  #include <vector>
+  #include <string>
+  #include <string_view>
+  #include <algorithm>  
+
+  int main()
+  {
+    using namespace std;
+
+    string str{ "hello world" };
+
+    auto iter1 = ranges::find(vector{ 1, 2, 3, 4, 5}, 4);
+    // iter2's type is `std::ranges::dangling` 
+    // because vector{1, 2, 3, 4, 5} is an R value
+
+    auto iter2 = ranges::find(string_view{ str }, 'w');
+    // `iter2`'s type is an iterator 
+    // even if `string_view{str}` is an R value
+    // because "string_view{ str }" expression is a borrowed range
+
+    cout << *iter1 << '\n'; // syntax error
+    cout << *iter2 << '\n'; // VALID
+  }
+*/
+
+/*
+                          ---------
+                          | views |
+                          ---------
+*/
+
+/*
+  view : a range with constant-time copy/move/destroy
+    - inherits from view_base
+    - uses enable_view = true
+
+  views are lightweight because, 
+    - default construction is constant time
+    - destruction is constant time
+    - move construction is constant time
+    - if copy construction is valid, it will also be constant time
+
+  Question : How compiler will undertand a user defined view class
+    is doing operations in constant time(i.e move construction)
+  Answer : compiler CAN NOT understand, only user defined class itself 
+    can give that guarantee.
+
+  - views are lazy evaluated
+  - views can be used with pipelining syntax
+*/
+
+/*
+  #include <ranges> // ranges::enable_view, ranges::view
+  #include <vector>
+
+  int main()
+  {
+    using namespace std;
+
+    // --------------------------------------------------
+
+    static_assert(ranges::enable_view<vector<int>>);
+    // error: static assertion failed
+    // `std::vector<int>` type is NOT a view
+
+    static_assert(ranges::view<vector<int>>);
+    // ranges::view is a concept itself
+    // error: static assertion failed
+
+    // --------------------------------------------------
+
+    std::vector<int> ivec;
+    auto vw = ivec | views::take(5);
+
+    static_assert(ranges::enable_view<decltype(vw)>);
+    // `vw` type is a view
+
+    static_assert(ranges::view<decltype(vw)>);
+    // ranges::view is a concept itself
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  Question : How to create a view from a range
+
+  1. std::views::all (function object)
+    -> when called with range which is view (NO OP)
+    -> when called with range which is NOT view (return a view)
+
+  2. creating a subrange using a range
+
+  3. std::views::counted (function object)
+*/
+
+/*
+  #include <ranges> // std::views::all, std::ranges::view
+  #include <vector>
+
+  int main()
+  {
+    std::vector<int> ivec{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+    // --------------------------------------------------
+
+    static_assert(std::ranges::view<decltype(ivec)>);
+    // error: static assertion failed
+    // `std::vector<int>` type is NOT a view
+
+    auto v1 = std::views::all(ivec);
+    // L value sent to std::views::all function object
+    // "v1"'s type is std::ranges::ref_view<std::vector<int>>
+
+    auto v2 = std::views::all(std::vector<int>{ 1, 2, 3, 4, 5 });
+    // R value sent to std::views::all function object
+    // "v2"'s type is std::ranges::owning_view<std::vector<int>>
+
+    // --------------------------------------------------
+
+    auto v3 = std::views::all(v1);
+    // v1 is already a view so NO OP
+    // v3's type will become same as v1's type
+    // "v3"'s type is std::ranges::ref_view<std::vector<int>>
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges> // std::ranges::subrange, std::ranges::view
+
+  int main()
+  {
+    std::vector<int> ivec{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+    // static_assert(std::ranges::view<decltype(ivec)>);
+    // error: static assertion failed
+
+    // --------------------------------------------------
+
+    std::ranges::subrange sb(ivec.begin(), ivec.end() - 1);
+
+    static_assert(std::ranges::view<decltype(sb)>); 
+    // ranges::subrange is a view created from a range
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <list> 
+  #include <ranges> // std::views::counted, std::ranges::view
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    std::vector<int> ivec{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+    auto v1 = std::views::counted(ivec.begin(), 3);
+    // "v1"'s type is std::span
+
+    static_assert(std::ranges::view<decltype(v1)>);
+
+    // --------------------------------------------------
+
+    std::list<int> ilist{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+    auto v2 = std::views::counted(ilist.begin(), 3);
+    // "v2"'s type is a std::ranges::subrange
+
+    static_assert(std::ranges::view<decltype(v2)>);
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  - range adaptörleri, bir range alıp view döndürürler.
+    -> filter, transform, take, drop, take_while, drop_while, reverse
+  - range factory fonksiyonları, bir range almadan view döndürürler.
+    -> iota, single, empty, repeat, all, counted
+*/
+
+/*
+                  <--- check views_images folder --->
+        https://hackingcpp.com/cpp/std/range_views_intro.html
+*/
+
+/*
+  // std::views::filter range adaptor(C++20)
+
+  #include <string>
+  #include <vector>
+  #include <ranges> // std::views::filter
+
+  int main()
+  {
+    using namespace std;
+
+    vector<string> svec{ "hello", "world", "we", "are", "live",
+      "from", "istanbul" };
+
+    char ch{'l'};
+
+    for (const auto& s : views::filter(svec, [ch](const auto& str){
+                                        return str.contains(ch); }))
+      cout << s << ' ';
+    // output -> hello world live istanbul
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges> // std::views::filter
+
+  int main()
+  {
+    using namespace std;
+
+    vector ivec{ 1, 2, 3, 4, 5, 17, 21, 25, 33, 40, 66 };
+
+    ranges::filter_view vw1{ ivec, [](int x){ return x % 5 == 0; } };
+    auto vw2 = views::filter(ivec, [](int x){ return x % 5 == 0; });
+    auto vw3 = ivec | views::filter([](int x){ return x % 5 == 0; });
+    // vw1, vw2, vw3 are equivalent.
+
+    for (auto val : vw1)
+      cout << val << ' ';
+    // output -> 5 25 40
+  }
+*/
+
+/*
+  #include <ranges> // std::ranges::to, std::views::filter
+  #include <vector>
+
+  int main()
+  {
+    using namespace std;
+
+    vector source{ 1, 4, 6, 2, 3, 8, 12, 7, 5 };
+
+    // --------------------------------------------------
+    // BEFORE std::ranges::to
+
+    auto vw = source | views::filter([](int x){ return x % 2 == 0; });
+    std::vector dest(vw.begin(), vw.end());
+
+    for (auto val : dest)
+      cout << val << ' ';
+    // output -> 4 6 2 8 12
+
+    cout << '\n';
+
+    // --------------------------------------------------
+    // AFTER std::ranges::to
+
+    auto con = source | views::filter([](int x){ return x % 2 == 0; }) 
+                      | ranges::to<vector>();
+
+    for (auto val : con)
+      cout << val << ' ';
+    // output -> 4 6 2 8 12
+    
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  // std::views::repeat range factory (C++23)
+
+  #include <ranges> // std::views::repeat, std::views::take
+
+  int main()
+  {
+    using namespace std;
+
+    // --------------------------------------------------
+
+    for (auto i : views::repeat(5, 7))
+      cout << i << ' ';
+    // output -> 5 5 5 5 5 5 5
+
+    cout << '\n';
+
+    // --------------------------------------------------
+
+    for (auto i : views::repeat('A') | views::take(4))
+      cout << i << ' ';
+    // output -> A A A A
+
+    cout << '\n';
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  std::views::iota range factory (C++20)
+
+  #include <ranges>
+
+  int main()
+  {
+    auto vw = std::views::iota(10); // creates an infinite range
+
+    for (auto i : vw | std::views::take(12))
+      std::cout << i << ' ';
+    // output -> 10 11 12 13 14 15 16 17 18 19 20 21
+  }
+*/
+
+/*
+  #include <ranges>
+  #include <vector>
+
+  int main()
+  {
+    using namespace std;
+
+    auto vec = 
+        views::iota(10)                                | 
+        views::take(12)                                |
+        views::filter([](int x){ return x % 2 == 0; }) |
+        ranges::to<vector>();
+
+    for (auto val : vec)
+      std::cout << val << ' ';
+    // output -> 10 12 14 16 18 20
+  }
+*/
+
+/*
+  // std::views::reverse range factory (C++20)
+
+  #include <vector>
+  #include <ranges>
+
+  int main()
+  {
+    std::vector ivec{ 3, 1, -2, 4, 7, -9, -1, 5, 14, 0, -7, -5, 12 };
+
+    // --------------------------------------------------
+
+    for (auto val : std::views::reverse(ivec))
+      std::cout << val << ' ';
+    // output -> 12 -5 -7 0 14 5 -1 -9 7 4 -2 1 3
+
+    std::cout << '\n';
+
+    // --------------------------------------------------
+
+    // pipeline syntax
+
+    for (auto val : ivec | std::views::reverse)
+      std::cout << val << ' ';
+    // output -> 12 -5 -7 0 14 5 -1 -9 7 4 -2 1 3
+
+    std::cout << '\n';
+
+    // --------------------------------------------------
+
+    std::ranges::reverse_view vw1{ ivec };
+
+    for (auto val : vw1)
+      std::cout << val << ' ';
+    // output -> 12 -5 -7 0 14 5 -1 -9 7 4 -2 1 3
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  // std::views::elements
+  
+  #include <vector>
+  #include <tuple>
+  #include <string>
+  #include <bitset>
+  #include <ranges> // std::views::elements
+
+  int main()
+  {
+    using namespace std;
+
+    vector<tuple<int, string, bitset<16>>> vec{
+      { 11, "hello",  bitset<16>{ 2873u } },
+      { 22, "world",  bitset<16>{ 98345u } },
+      { 33, "galaxy", bitset<16>{ 1289474u } },
+    };
+
+    // --------------------------------------------------
+
+    auto ivec = vec | views::elements<0> 
+                    | ranges::to<vector>();
+
+    for (auto val : ivec)
+      cout << val << ' ';
+    // output -> 11 22 33
+
+    cout << '\n';
+    
+    // --------------------------------------------------
+
+    auto svec = vec | views::elements<1> 
+                    | ranges::to<vector>();
+
+    for (const auto& str : svec)
+      cout << str << ' ';
+    // output -> hello world galaxy
+
+    cout << '\n';
+
+    // --------------------------------------------------
+
+    auto bvec = vec | views::elements<2>
+                    | ranges::to<vector>();
+
+    for (const auto& bs : bvec)
+      cout << bs << '\n';
+    // output -> 
+    //  0000101100111001
+    //  1000000000101001
+    //  1010110100000010
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  // std::views::keys, std::views::values
+
+  #include <ranges>
+  #include <vector>
+  #include <utility>  // std::pair
+  #include "../nutility.h"
+
+  int main()
+  {
+    using namespace std;
+
+    vector<pair<string, int>> vec;
+
+    for(int i = 0; i < 5; ++i)
+      vec.emplace_back(rname(), rand());
+
+    // --------------------------------------------------
+
+    for (const auto& str : views::keys(vec))
+      cout << str << ' ';
+    // output -> canan beste yasemin lale hilal
+
+    cout << '\n';
+
+    // --------------------------------------------------
+
+    for (const auto& val : views::values(vec))
+      cout << val << ' ';
+    // output -> 41 18467 6334 26500 19169
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  // std::views::split (C++20)
+
+  #include <vector>
+  #include <ranges> // std::views::split, std::views::reverse
+
+  int main()
+  {
+    using namespace std;
+
+    vector ivec{ 1, 2, 3, 1, 5, 1, 7, 8, 1, 10 };
+
+    auto rng = ivec | views::reverse | views::split(1);
+
+    for (auto sub : rng){
+      for (auto val : sub)
+        cout << val << ' ';
+      cout << '\n';
+    }
+
+    // output ->
+    //  10
+    //  8 7
+    //  5
+    //  3 2
+  }
+*/
+
+/*
+  // std::views::slide range adaptor (C++23)
+
+  #include <vector>
+  #include <string>
+  #include <iterator>   // std::ostream_iterator  
+  #include <ranges>     // std::views::slide
+
+  int main()
+  {
+    using namespace std;
+
+    vector<string> svec{ "hello", "world", "we", "are", "live",
+      "from", "istanbul" };
+
+    for (auto rn : views::slide(svec, 3)){
+      for (const auto& str : rn)
+        cout << str << ' ';
+      cout << '\n';
+    }
+    // output ->
+    //  hello world we
+    //  world we are
+    //  we are live
+    //  are live from
+    //  live from istanbul
+  }
+*/
+
+/*
+  // std::views::join range adaptor (C++20)
+
+  #include <vector>
+  #include <string>
+  #include <ranges>
+
+  int main()
+  {
+    using namespace std;
+
+    vector<string> svec{ "hello", "world", "we", "are", "live",
+      "from", "istanbul" };
+
+    // --------------------------------------------------
+
+    auto v1 = views::join(svec);
+    // "v1"'s type is std::ranges::join_view>
+
+    for (auto ch : views::join(svec))
+      cout.put(ch) << ' ';
+    // output ->
+    // h e l l o w o r l d w e a r e l i v e f r o m i s t a n b u l
+
+    cout << '\n';
+
+    // --------------------------------------------------
+
+    auto v2 = svec  | views::reverse 
+                    | views::join; 
+    // "v2"'s type is std::ranges::join_view<std::ranges::reverse_view
+
+    for ( auto ch : (svec | views::reverse | views::join) )
+      cout.put(ch) << ' ';
+    // output ->
+    // i s t a n b u l f r o m l i v e a r e w e w o r l d h e l l o
+
+    cout << '\n';
+
+    // --------------------------------------------------
+
+    auto v3 = svec  | views::join
+                    | ranges::to<vector>();
+    // "v3"'s type is std::vector<char>
+
+    const auto v4 = svec  | views::join
+                          | ranges::to<string>();
+    // "v4"'s type is const std::string
+
+    cout << v4 << '\n';
+    // output -> helloworldwearelivefromistanbul
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  // std::views::join_with range adaptor (C++23)
+
+  #include <vector>
+  #include <string>
+  #include <ranges>
+
+  int main()
+  {
+    using namespace std;
+
+    vector<string> svec{ "hello", "world", "we", "are", "live",
+      "from", "istanbul" };
+
+    const auto v4 = svec  | views::join_with('_')
+                          | ranges::to<string>();
+    // "v4"'s type is const std::string
+
+    cout << v4 << '\n';
+    // output -> hello_world_we_are_live_from_istanbul
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  // std::views::zip range adaptor (C++23)
+
+  #include <vector>
+  #include <ranges> 
+  #include <string>
+  #include <format>
+  #include <tuple>
+
+  int main()
+  {
+    using namespace std;
+
+    vector<int> ivec{ 2, 6, 4, 7, 9, 1 };
+    string str{"galaxy"};
+    vector dvec{ 11.1, 22.2, 33.3, 44.4, 55.5, 66.6 };
+
+    // --------------------------------------------------
+
+    for (auto t : views::zip(ivec, str)){
+      auto [i, ch] = t;
+      cout << format("[ {}, {} ]\n", i, ch);
+    }
+    // output ->
+    //  [ 2, g ]
+    //  [ 6, a ]
+    //  [ 4, l ]
+    //  [ 7, a ]
+    //  [ 9, x ]
+    //  [ 1, y ]
+
+    // --------------------------------------------------
+
+    auto vec = views::zip(ivec, str) | ranges::to<vector>();
+    // "vec"'s type is std::vector<std::tuple<int, char>>
+
+    // --------------------------------------------------
+
+    for (auto t : views::zip(ivec, str, dvec)){
+      auto [i, ch, d] = t;
+      cout << format("[ {}, {}, {} ]\n", i, ch, d);
+    }
+    // output ->
+    //  [ 2, g, 11.1 ]
+    //  [ 6, a, 22.2 ]
+    //  [ 4, l, 33.3 ]
+    //  [ 7, a, 44.4 ]
+    //  [ 9, x, 55.5 ]
+    //  [ 1, y, 66.6 ]
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges> 
+  // std::views::drop_while, std::views::reverse, std::views::drop
+
+  int main()
+  {
+    using namespace std;
+
+    vector pvec{ 2, 3, 5, 7, 11, 13, 17, 19, 23, 29 };
+
+    for (auto elem :  pvec                                            | 
+                      views::drop_while([](int x){ return x < 10; })  |
+                      views::reverse                                  |
+                      views::drop(3))
+      cout << elem << ' ';
+    // output -> 17 13 11
+
+    // drop_while -> { 11, 13, 17, 19, 23, 29 }
+    // reverse    -> { 29, 23, 19, 17, 13, 11 }
+    // drop(3)    -> { 17, 13, 11 }
+  }
+*/
