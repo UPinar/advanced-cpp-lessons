@@ -596,6 +596,7 @@
 */
 
 /*
+                inside ranges_images folder
             <---- check range_concepts.png ---->
          <---- check range_generic_functions.png ---->
         <---- check range_generic_functions_2.png ---->
@@ -647,9 +648,9 @@
 */
 
 /*
-              -----------------------------------
-              | projection in ranges algorithms |
-              -----------------------------------
+                ------------------------------------
+                | projection in ranges::algorithms |
+                ------------------------------------
 */
 
 /*
@@ -700,7 +701,7 @@
 */
 
 /*
-          <---- check not_related / std::invoke ---->
+          <---- check ../not_related/std::invoke ---->
 */
 
 /*
@@ -1459,9 +1460,9 @@
 */
 
 /*
-                      -------------------
-                      | lazy evaluation |
-                      -------------------
+                        -------------------
+                        | lazy evaluation |
+                        -------------------
 */
 
 /*
@@ -2262,6 +2263,12 @@
 */
 
 /*
+                        ------------------
+                        | borrowed range |
+                        ------------------
+*/
+
+/*
   borrowed range : a range whose iterators will not dangle -
     - an L value range
     - an R value range with enable_borrowed_range = true
@@ -2446,6 +2453,12 @@
 
     // --------------------------------------------------
   }
+*/
+
+/*
+              --------------------------------------
+              | range adaptors and range factories |
+              --------------------------------------
 */
 
 /*
@@ -2949,5 +2962,272 @@
     // drop_while -> { 11, 13, 17, 19, 23, 29 }
     // reverse    -> { 29, 23, 19, 17, 13, 11 }
     // drop(3)    -> { 17, 13, 11 }
+  }
+*/
+
+// -------------------------------------------------------
+// -------------------------------------------------------
+// -------------------------------------------------------
+// -------------------------------------------------------
+// -------------------------------------------------------
+
+/*
+                ------------------------------
+                | caching mechanism in views |
+                ------------------------------
+*/
+
+/*
+  #include <vector>
+  #include <ranges> 
+
+  int main()
+  {
+    using namespace std;
+
+    vector ivec{ 2, 7, 9, 5, 4, 10, 6, 7 };
+
+    auto vw = ivec | views::filter([](int x){ 
+      cout << "filtering " << x << '\n';
+      return x % 5 == 0; });
+
+    // --------------------------------------------------
+
+    cout << "[1] first tour\n";
+    for (auto val : vw)
+      ; // null statement
+
+    // output ->
+    //  [1] first tour
+    //  filtering 2
+    //  filtering 7
+    //  filtering 9
+    //  filtering 5
+    //  filtering 4
+    //  filtering 10
+    //  filtering 6
+    //  filtering 7
+
+    // --------------------------------------------------
+
+    cout << "[2] second tour\n";
+    for (auto val : vw)
+      ; // null statement
+
+    // output ->
+    //  [2] second tour
+    //  filtering 4
+    //  filtering 10
+    //  filtering 6
+    //  filtering 7
+
+    // --------------------------------------------------
+
+    // view object cached the position of first element 
+    // satisfying the predicate inside its interface
+    // and in the second tour, it started from that position.
+    // this increase the performance but there are some complications...
+
+    // Problem:
+    // When view object is modified after the first tour,
+    // cached position will still points to the old position.
+    // might cause undefined behavior.
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <ranges>
+  #include <list>
+
+  void print_range(std::ranges::input_range auto&& rng)
+  {
+    for (const auto& val : rng)
+      std::cout << val << ' ';
+    std::cout << '\n';
+  }
+
+  int main()
+  {
+    using namespace std;
+
+    list ilist{ 2, 3, 5, 7, 11, 13, 17};
+    
+    auto vw = ilist | views::drop(3);
+    print_range(vw);
+    // output -> 7 11 13 17
+
+    ilist.push_front(-1);
+    print_range(vw);
+    // output -> 7 11 13 17
+
+    // There is a logic error in the code above.
+    // in 2nd "print_range" call 
+    // we expect to see { 5 7 11 13 17 }, but saw { 7 11 13 17 }
+    // Because the position of { 7 } is cached in 1st "print_range" call
+  }
+*/
+
+/*
+  #include <vector>
+  #include <ranges>
+
+  void print_range(std::ranges::input_range auto&& rng)
+  {
+    for (const auto& val : rng)
+      std::cout << val << ' ';
+    std::cout << '\n';
+  }
+
+  int main()
+  {
+    using namespace std;
+
+    vector ivec{ 2, 3, 5, 1, 2, 8, 7 };
+    
+    auto pred = [](int x){ return x > 3; };
+    auto vw = ivec | views::filter(pred);
+
+    print_range(vw);  // output -> 5 8 7
+
+    ++ivec[1];
+    ivec[2] = 0;
+    // ivec becomes { 2, 4, 0, 1, 2, 8, 7 }
+
+    print_range(vw);  
+    // output -> 0 8 7
+    // expected output -> 4 8 7
+
+    // because of caching, in 1st "print_range" call 
+    // position of { 5 } is cached.
+    // in 2nd "print_range" call, even if ivec is modified
+    // view objects begin is still pointing to the cached position.
+  }
+*/
+
+/*
+  #include <vector>
+  #include <list>
+  #include <ranges>
+
+  void print_range(const auto& rng)
+  {
+    for (const auto& val : rng)
+      std::cout << val << ' ';
+    std::cout << '\n';
+  }
+
+  int main()
+  {
+    std::vector ivec{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    std::list ilist{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+
+    // --------------------------------------------------
+
+    print_range(ivec | std::views::take(3));
+    // output -> 1 2 3
+
+    print_range(ivec | std::views::drop(3));
+    // output -> 4 5 6 7 8 9
+
+    // --------------------------------------------------
+
+    print_range(ilist | std::views::take(3));
+    // output -> 1 2 3
+
+    //print_range(ilist | std::views::drop(3)); // syntax error
+    // passing 'const std::ranges::drop_view<
+    // std::ranges::ref_view<
+    // std::list<int, std::allocator<int>>>>' 
+    // as 'this' argument discards qualifiers
+
+    // problem is const range object
+
+    // --------------------------------------------------
+
+    for (const auto& elem : ilist | std::views::drop(3))
+      std::cout << elem << ' ';
+    // output -> 4 5 6 7 8 9
+
+    std::cout << '\n';
+
+    // problem is not const elements
+
+    // --------------------------------------------------
+
+    auto is_even = [](const auto& val){
+      return val % 2 == 0;
+    };
+
+    print_range(ivec | std::views::filter(is_even)); // syntax error
+    // error: passing 'const std::ranges::filter_view<
+    // std::ranges::ref_view<
+    // std::vector<int, std::allocator<int>>>, 
+    // main()::<lambda(const auto:53&)> >' 
+    // as 'this' argument discards qualifiers
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+          <--- check ranges_images/range_caching.png --->
+*/
+
+/*
+  #include <ranges>   // std::views::take
+  #include <vector>
+  #include <utility>  // std::move
+
+  auto get_elems()
+  {
+    std::vector ivec{ 3, 6, 7, 9, 2, 1, 5, 8, 4 };
+    return ivec | std::views::take(4);
+  }
+
+  auto get_elems_2()
+  {
+    return std::vector{ 3, 6, 7, 9, 2, 1 } | std::views::take(4);
+    // returning R value
+  }
+
+  auto get_elems_3()
+  {
+    std::vector ivec{ 3, 6, 7, 9, 2, 1, 5, 8, 4 };
+    return std::move(ivec) | std::views::take(4);
+    // Returning R value
+  }
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    auto vw = get_elems();
+    // local variable ivec's lifetime will end at the end of "get_elems"
+    // function which view object is pointing to its elements
+
+    for (auto val : vw)
+      std::cout << val << ' ';    // undefined behaviour(UB)
+    
+    // --------------------------------------------------
+
+    auto vw2 = get_elems_2();
+
+    for (auto val : vw2)
+      std::cout << val << ' ';
+    // output -> 3 6 7 9
+
+    std::cout << '\n';
+
+    // --------------------------------------------------
+
+    auto vw3 = get_elems_3();
+
+    for (auto val : vw3)
+      std::cout << val << ' ';
+    // output -> 3 6 7 9
+
+    // --------------------------------------------------
   }
 */

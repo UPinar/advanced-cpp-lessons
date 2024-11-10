@@ -123,7 +123,23 @@
 ### [`<ranges>` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/ranges_module)
   - rangified algorithms
   - projection in ranges::algorithms
-  - `std::ranges::views`
+  - std::ranges::views
+  - lazy evaluation
+  - common
+  - subrange
+  - borrowed range
+  - views
+  - range adaptors and range factories
+  - caching mechanism in views
+
+### [`<span>` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/span_module)
+  - `std::span`
+  - `std::dynamic_extent`
+  - `std::subspan` 
+  
+### [C++ Idioms](https://github.com/UPinar/AdvancedCPPLessons/tree/main/cpp_idioms)
+  - exception tracker idiom
+  - exception dispatcher idiom
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
