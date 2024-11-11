@@ -140,6 +140,15 @@
 ### [C++ Idioms](https://github.com/UPinar/AdvancedCPPLessons/tree/main/cpp_idioms)
   - exception tracker idiom
   - exception dispatcher idiom
+  - ADL + fallback idiom
+  - hidden friend idioms
+  - scope guard idiom
+  - return type resolve idiom
+  - non virtual interface idiom (NVI)
+    - fragile base class problem
+  - `std::tuple` idioms
+
+### [Template Metaprogramming](https://github.com/UPinar/AdvancedCPPLessons/tree/main/template_metaprogramming)
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
