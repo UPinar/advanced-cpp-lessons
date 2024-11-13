@@ -149,6 +149,11 @@
   - `std::tuple` idioms
 
 ### [Template Metaprogramming](https://github.com/UPinar/AdvancedCPPLessons/tree/main/template_metaprogramming)
+  - template argument deduction
+  - template parameter types
+    - template type parameter
+    - non-type template parameter (NTTP)
+  - variable template 
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
