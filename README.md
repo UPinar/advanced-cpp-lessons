@@ -148,12 +148,20 @@
     - fragile base class problem
   - `std::tuple` idioms
 
-### [Template Metaprogramming](https://github.com/UPinar/AdvancedCPPLessons/tree/main/template_metaprogramming)
+### [Generic Programming](https://github.com/UPinar/AdvancedCPPLessons/tree/main/generic_programming)
   - template argument deduction
   - template parameter types
     - template type parameter
     - non-type template parameter (NTTP)
-  - variable template 
+    - template template parameter
+  - variable template
+  - default arguments in template parameters
+  - template specializations
+    - explicit(full) specialization
+    - partial specialization
+  - variadic templates
+    - pack expansion
+    - fold expressions
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax

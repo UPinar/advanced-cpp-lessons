@@ -1,0 +1,3355 @@
+#include <iostream>
+
+/*
+                      =======================
+                      | Generic Programming |
+                      =======================
+*/
+
+/*
+                  <--- check templates.png --->
+*/
+
+/*
+                  -------------------------------
+                  | template argument deduction |
+                  -------------------------------
+*/
+
+/*
+  // ------------------------------------------------
+
+  template <typename T>
+  void foo(T){}
+
+  // - dizi ismi veya string literali ile çağrı yapıldığında,
+  //  array decay olur.
+
+  // - fonksiyon ismi ile çağrı yapıldığında
+  //  function to function pointer decay olur.
+
+  // - const nesne ile çağrı yapıldığında const'luk düşer.
+  // - referans nesne ile çağrı yapıldığında referans düşer.
+
+  // ------------------------------------------------
+
+  int func(int, int){ return 1; }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    int x = 10;
+    const int& r{ x };
+
+    foo(r);       // T = int (const ve referans düşer)
+
+    // ------------------------------------------------
+
+    foo(func);    // T = int(*)(int, int) 
+    // (function to pointer conversion) 
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  // ------------------------------------------------
+
+  template <typename T>
+  void bar(T&){}
+  // - const nesne ile çağrı yapıldığında const'luk düşmez.
+
+  // - dizi ismi veya string literali ile çağrı yapıldığında,
+  //  array decay olmaz.
+
+  // - function ismi ile çağrı yapıldığında
+  //   function to function pointer decay olmaz.
+  //   tür çıkarımı fonksiyon türü olarak yapılır.
+
+  template <typename T>
+  void bar_2(const T&, const T&){}
+
+  // ------------------------------------------------
+
+  int func(int, int){ return 1; }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    const int y = 20;
+    bar(y);       // T = const int (const düşmez)
+
+    // ------------------------------------------------
+
+    int a_arr[4]{};
+    int b_arr[4]{};
+    int c_arr[5]{};
+
+    bar_2(a_arr, b_arr);  // T = int[4]
+
+    bar_2(a_arr, c_arr);  // syntax error
+    // error: no matching function for call to 
+    // 'bar_2(int [4], int [5])'
+
+    // ------------------------------------------------
+
+    bar(func);    // T = int(int, int)
+    // compiler written specialization for bar(func);
+    // template <>
+    // void bar<int(int)>(int(&)(int)){}  
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <typename T, std::size_t N>
+  void foo(const T(&)[N]);
+
+  int main()
+  {
+    int arr[45]{};
+    foo(arr);   // T = int, N = 45
+    // hem T için hem de N için tür çıkarımı yapılır.
+  }
+*/
+
+/*
+  template <typename T, typename U>
+  void foo(T(*)(U));
+
+  int func(double);
+
+  int main()
+  {
+    foo(func);  // T = int, U = double
+    // hem T için hem de U için tür çıkarımı yapılır.
+  }
+*/
+
+/*
+  // bazı durumlarda, tür çıkarımının yapılması 
+  // fonksiyonun çağrılmasına bağlı değildir.
+
+  template <typename T>
+  void foo(T, T);
+
+  int main()
+  {
+    void (*fp)(int, int) = &foo;
+    // tür çıkarımı yapılır ve T = int olur.
+  }
+*/
+
+/*
+  template <typename T>
+  class TypeTeller;     // incomplete type
+
+  template <typename T>
+  void func(T&&)
+  {
+    TypeTeller<T> t;
+  }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    func(4);  // T = int
+    // In instantiation of 'void func(T&&) [with T = int]':
+    // error: 'TypeTeller<int> t' has incomplete type
+
+    // ------------------------------------------------
+    
+    int x = 10;
+    func(x);  // T = int&
+    // In instantiation of 'void func(T&&) [with T = int&]':
+    // error: 'TypeTeller<int&> t' has incomplete type
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <array> 
+
+  template <typename T, typename U>
+  void foo(std::array<T, sizeof(U)>, std::array<U, sizeof(T)>);
+
+  int main()
+  {
+    std::array<int, sizeof(double)> a1;
+    std::array<double, sizeof(int)> a2;
+    std::array<double, 5> a3;
+
+    foo(a1, a2);  // T = int, U = double
+
+    foo(a1, a3);  // syntax error
+    // error: could not convert 'a3' from 
+    // 'array<[...],5>' to 'array<[...],4>'
+  }
+*/
+
+/*
+  #include <vector>
+
+  template <typename T, 
+            typename A, 
+            template <typename, typename> typename Con>
+  void func(const Con<T, A>& con);
+
+  int main()
+  {
+    std::vector<int> ivec;
+    func(ivec);
+    // T    = int, 
+    // A    = class std::allocator<int>
+    // Con  = class std::vector
+  }
+*/
+
+/*
+  template <typename T>
+  void func_1(T*);
+
+  template <typename E, int N>
+  void func_2(E(&)[N]);
+
+  template <typename T1, typename T2, typename T3>
+  void func_3(T1(T2::*)(T3*));
+
+  class AClass {
+  public:
+    void m_foo(double*);
+  };
+
+  void g_func(int*** ppp)
+  {
+    func_1(ppp);        
+    // T = int**
+
+    func_1(*ppp);
+    // T = int*
+
+    func_1(**ppp);
+    // T = int
+
+    bool b_arr[42];
+    func_2(b_arr);          
+    // E = bool, N = 42
+
+    func_3(&AClass::m_foo); 
+    // T1 = void, T2 = AClass, T3 = double
+  }
+*/
+
+/*
+  template <typename T, typename U>
+  void func(T(*)(U));
+
+  int foo(double);
+
+  int main()
+  {
+    func(foo);  // T = int, U = double
+
+    func([](int x){ return x * 5; }); // syntax error
+    // error: no matching function for call to 
+    // 'func(main()::<lambda(int)>)'
+
+    // no implicit conversion from closure type 
+    // to function pointer type
+
+    func(+[](int x){ return x * 5; });  // positive lambda idiom
+    // T = int, U = int
+  }
+*/
+
+/*
+  #include <vector>
+
+  template <typename T>
+  void func(T&&, const std::vector<T>& vec);
+
+  int main()
+  {
+    std::vector<int> ivec(10);
+
+    // ------------------------------------------------
+
+    func(ivec[0], ivec);  // syntax error
+
+    // "ivec[0]" is an LValue expression, its data type is `int`
+    // for first argument  T will be deduce to int&
+    // for second argument T will be deduce to int
+    // so syntax error
+
+    // ------------------------------------------------
+
+    func((int)ivec[0], ivec);  // VALID
+    // "(int)ivec[0]" is a PRValue expression, its data type is `int`
+    // for first argument  T will be deduce to int
+    // for second argument T will be deduce to int
+    // VALID
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <typename T>
+  T func(T*);
+
+  int main()
+  {
+    void* vp{};
+
+    func(vp);  // T = void
+  }
+*/
+
+/*
+  template <typename T>
+  void func(T = 0);
+
+  class Myclass {};
+
+  int main()
+  {
+    int x = 20;
+
+    func(20);     // T = int
+    func(2.0);    // T = double
+    func(&x);     // T = int*
+
+    func();       // syntax error
+    // error: no matching function for call to 'func()'
+    // varsayılan argümandan hareketle tür çıkarımı yapılamaz.
+
+    func(Myclass{});  // T = Myclass
+    // varsayılan argümen kullanılmıyor.
+  }
+*/
+
+/*
+                    ----------------------------
+                    | template parameter types |
+                    ----------------------------
+*/
+
+/*
+  - template type parameter
+  - non-type template parameter
+  - template template parameter
+*/
+
+/*
+                    ---------------------------
+                    | template type parameter |
+                    ---------------------------
+*/
+
+/*
+  // ------------------------------------------------
+
+  template <typename T>  // template type parameter
+  void foo(T);
+
+  void foo(auto);
+
+  // Those 2 functions are equivalent.
+
+  // ------------------------------------------------
+
+  template <typename T>
+  void bar(T&);
+
+  void bar(auto&);
+
+  // Those 2 functions are equivalent.
+
+  // ------------------------------------------------
+
+  template <typename T>
+  void baz(T&&);
+
+  void baz(auto&&);
+
+  // Those 2 functions are equivalent.
+
+  // ------------------------------------------------
+*/
+
+/*
+  #include <concepts> // std::integral
+
+  template <std::integral T>
+  void func(T);
+
+  void func(std::integral auto);
+
+  // Those 2 functions are equivalent.
+*/
+
+/*
+                -------------------------------
+                | non-type template parameter |
+                -------------------------------
+*/
+
+/*
+  template <int N>    // can be an integral type
+  class Myclass {};
+
+  template <int* p>   // can be a object pointer type
+  class Myclass_2 {};
+
+  template <int& r>   // can be a reference type
+  class Myclass_3 {};
+
+  // can be a function pointer type
+  // can be a function reference type
+  // can be a member function pointer type
+  // can be a member function reference type
+*/
+
+/*
+  class Myclass {
+  public:
+    double foo(double);
+    double bar(double);
+  };
+
+  template <int x>    // template <auto x>  ->  auto is also NTTP
+  class AClass {};
+
+  template <int* p>
+  class BClass {};
+
+  template <int& r>
+  class CClass {};
+
+  template <int(*fp)(int)>
+  class DClass {};
+
+  template <double(Myclass::*mfp)(double)>
+  class EClass {};
+
+  int g_x{};  // static storage duration variable
+  int foo(int);
+
+  int main()
+  {
+    int x{};  // automatic storage duration variable
+    static int y = 12;  // static storage duration variable
+
+    // ------------------------------------------------
+
+    AClass<10> a; // x = 10
+
+    // ------------------------------------------------
+
+    BClass<&g_x> b1;  // p = &g_x
+
+    BClass<&x> b2;  // syntax error
+    // error: the address of 'x' is not a valid template argument 
+    // because it does not have static storage duration
+
+    BClass<&y> b2;  // p = &y
+
+    // ------------------------------------------------
+
+    CClass<g_x> c1;  // r = g_x
+
+    CClass<x> c2;    // syntax error
+    // error: the address of 'x' is not a valid template argument 
+    // because it does not have static storage duration
+
+    CClass<y> c3;    // r = y
+
+    // ------------------------------------------------
+
+    DClass<foo>  d1;  // fp = foo
+    DClass<&foo> d2;  // fp = foo
+    // Those 2 lines are equivalent.
+
+    // ------------------------------------------------
+
+    EClass<&Myclass::foo> e1; // mfp = &Myclass::foo
+    EClass<&Myclass::bar> e2; // mfp = &Myclass::bar
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <const char* str>
+  class Myclass {};
+
+  char g_str[] = "hello";             // static storage duration
+  const char g_cstr[] = "world";      // static storage duration
+
+  int main()
+  {
+    char str[] = "galaxy";            // automatic storage duration
+    static char s_str[] = "universe"; // static storage duration
+
+    // ------------------------------------------------
+
+    Myclass<"Istanbul"> m1;  // syntax error
+    // error: '"Istanbul"' is not a valid template argument 
+    // for type 'const char*' because string literals 
+    // can never be used in this context
+
+    // string literals have internal linkage
+
+    // ------------------------------------------------
+
+    Myclass<str> m2;  // syntax error
+    // error: the address of 'str' is not a valid template argument 
+    // because it does not have static storage duration
+
+    // ------------------------------------------------
+
+    Myclass<s_str> m3;    // VALID
+    Myclass<g_str> m4;    // VALID
+    Myclass<g_cstr> m5;   // VALID
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  // both template parameters are NTTP
+  template <int, bool>
+  class Myclass {};
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    Myclass<10, true> m1;
+
+    // ------------------------------------------------
+
+    Myclass<sizeof(int), sizeof(int) == 4> m2;
+    // "sizeof(int)" is a constant expression
+    // "sizeof(int) == 4" is a constant expression
+
+    // ------------------------------------------------
+
+    Myclass<10, sizeof(int) > 2> m3;  // syntax error (parsing error)
+    // error: narrowing conversion of '4' 
+    // from 'long long unsigned int' to 'bool'
+    
+    // ------------------------------------------------
+
+    Myclass<10, (sizeof(int) > 2)> m4;
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <typename T, int N, int M>
+  constexpr bool Less(const T(&arr_1)[N], const T(&arr_2)[M])
+  {
+    for (int i = 0; i < N && i < M; ++i)
+    {
+      if (arr_1[i] < arr_2[i])
+        return true;
+
+      if (arr_2[i] < arr_1[i])
+        return false;
+    }
+
+    return N < M;
+  }
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    int arr1[] = { 3, 7, 9 };
+    constexpr int arr2[] = { 3, 7, 9, 2, 6 }; 
+    constexpr int arr3[] = { 3, 7, 9, 2, 6 }; 
+
+    std::cout << Less(arr1, arr2) << '\n';
+    // output -> true
+
+    constexpr bool b1 = Less(arr1, arr2); // syntax error
+    // error: the value of 'arr1' is not usable in a constant expression
+
+    constexpr bool b2 = Less(arr2, arr3);
+    // b2 -> false
+  }
+*/
+
+/*
+  template <auto Val, typename T = decltype(Val)>
+  T foo();
+
+  int main()
+  {
+    auto x = foo<10>();     
+    // foo<12, int> specialization
+    // T = int, x's type is int
+
+    auto y = foo<5.5>();
+    // foo<5.5, double> specialization
+    // T = double, y's type is double
+
+    auto z = foo<1.2, int>();  
+    // foo<1.2, int> specialization
+    // T = int, z's type is int
+  }
+*/
+
+/*
+  struct AStruct {
+    int foo(int);
+    int bar(int);
+    int m_x;
+    int m_y;
+  };
+
+  template <int AStruct::* mp, int (AStruct::* fp)(int)>
+  class Myclass {};
+
+  int main()
+  {
+    Myclass<&AStruct::m_x, &AStruct::foo> m1;
+    Myclass<&AStruct::m_y, &AStruct::bar> m2;
+    Myclass<&AStruct::m_x, &AStruct::bar> m3;
+    Myclass<&AStruct::m_y, &AStruct::foo> m4;
+  }
+*/
+
+/*
+  #include <vector>
+  #include <algorithm>  // std::transform
+
+  template <typename T, int val>
+  T add_value(T x)
+  {
+    return x + val;
+  }
+
+  int main()
+  {
+    using namespace std;
+    std::vector<int> source_vec(100);
+    std::vector<int> dest_vec(100);
+
+    transform(begin(source_vec), end(source_vec), 
+              begin(dest_vec), add_value<int, 10>);
+
+    transform(begin(source_vec), end(source_vec), 
+              begin(dest_vec), [](int x){ return x + 10; });
+  }
+*/
+
+/*
+  // NTTP can also be parameter pack
+
+  #include <type_traits>  // std::is_same
+
+  template <int... Vals>
+  class Myclass {};
+
+  int main()
+  {
+    Myclass<> m0;
+    Myclass<1> m1;
+    Myclass<2> m2;
+    Myclass<1, 2, 3, 4> m3;
+
+    static_assert(std::is_same_v<Myclass<1>, Myclass<2>>);
+    // output -> error: static assertion failed
+
+    static_assert(not std::is_same_v<Myclass<1>, Myclass<2>>);
+    // VALID
+  }
+*/
+
+/*
+  enum class Pos { OFF, ON, HOLD, STANDBY, ERROR };
+
+  template <Pos...>
+  class Myclass {};
+
+  int main()
+  {
+    using enum Pos;
+
+    Myclass<OFF> m1;
+    Myclass<OFF, ON, HOLD> m2;
+  }
+*/
+
+/*
+  template <decltype(auto) x>
+  class Myclass {
+  public:
+    Myclass()
+    {
+      ++x;
+    }
+  };
+
+  int g_ival = 0;
+
+  int main()
+  {
+    std::cout << "g_ival = " << g_ival << '\n';
+    // output -> g_ival = 0
+
+    Myclass<(g_ival)> m1;   // reference type
+    std::cout << "g_ival = " << g_ival << '\n';
+    // output -> g_ival = 1
+  }
+*/
+
+/*
+  template <int N, int& r>
+  void bar()
+  {
+    // ------------------------------------------------
+
+    ++N;  // syntax error
+    // error: increment of read-only location 'N'
+    // error: lvalue required as increment operand
+
+    ++r;  // VALID
+
+    // ------------------------------------------------
+
+    auto p1 = &N;  // syntax error
+    // error: lvalue required as unary '&' operand
+
+    auto p2 = &r;  // VALID
+
+    // ------------------------------------------------
+
+    int& r1 = N;  // syntax error
+    // error: cannot bind non-const lvalue reference of type 'int&' 
+    // to an rvalue of type 'int'
+
+    int& r2 = r;  // VALID
+
+    // ------------------------------------------------
+  }
+
+  int g_ival = 15;
+
+  int main()
+  {
+    bar<10, g_ival>();
+  }
+*/
+
+/*
+  template <auto x, auto y>
+  struct Sum {
+    static constexpr auto value = x + y;
+  };
+
+  int main()
+  {
+    Sum<10, 24L>::value;
+    // "Sum<10, 24L>::value" is a constant expression
+    // its data type is "long"
+  }
+*/
+
+/*
+  // NTTP can be a floating point number  (C++20)
+
+  template <double dval>
+  class Myclass {};
+
+  constexpr auto foo(double d)
+  {
+    return d * d;
+  }
+
+  int main()
+  {
+    constexpr auto dval = foo(234.123);
+
+    Myclass<dval> m1;
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_same_v
+
+  template <double>
+  class Myclass {};
+
+  int main()
+  {
+    static_assert(std::is_same_v<Myclass<0.3>, Myclass<0.7 - 0.4>>);
+    // error : static assertion failed
+
+    static_assert(std::is_same_v<Myclass<0.2>, Myclass<0.1 + 0.1>>);
+    // VALID (related with floating point format)
+    
+    static_assert(std::is_same_v<Myclass<+0.>, Myclass<-0.>>);
+    // error : static assertion failed
+  }
+*/
+
+/*
+  template <auto x>
+  class Myclass {};
+
+  int main()
+  {
+    Myclass<1.2f> m1;
+    Myclass<1.2> m2;
+    Myclass<1.2L> m3;
+  }
+*/
+
+/*
+  template <double ...Args>
+  class Myclass {};
+
+  int main()
+  {
+    Myclass<1.2, 3.4, 2.3, 9.8> m1;
+  }
+*/
+
+/*
+  template <auto ...Args>
+  class Myclass {};
+
+  int main()
+  {
+    Myclass<11, 'B', 3.4, 8LL, 5.4f> m1;
+  }
+*/
+
+/*
+            <--- check structural_type.png --->
+
+  - structural types can be used as a NTTP
+*/
+
+/*
+  class AClass{};
+  AClass g_ax;
+
+  template <AClass a>
+  class Myclass {};
+
+  int main()
+  {
+    Myclass<g_ax> a1;  // VALID
+  }
+*/
+
+/*
+  class AClass{
+  public:
+    AClass(int) {};
+  };
+
+  template <AClass> // syntax error
+  class Myclass{};
+  // error: 'AClass' is not a valid type for a 
+  // template non-type parameter because it is not structural
+
+  // note: 'AClass' is not an aggregate, 
+  // does not have a trivial default constructor, 
+  // and has no 'constexpr' constructor 
+  // that is not a copy or move constructor
+*/
+
+/*
+  class AClass {
+  public:
+    constexpr AClass(int x) : m_x{ x } {}
+    int m_x;
+  };
+
+  template <AClass a>
+  class Myclass {};
+
+  constexpr AClass g_ax{ 4 };
+
+  int main()
+  {
+    Myclass<g_ax> m1;         // VALID
+    Myclass<AClass{ 5 }> m2;  // VALID
+  }
+*/
+
+/*
+  #include <algorithm>  // std::copy
+
+  template <int N>
+  struct MyLiteral {
+    char m_str[N];
+
+    constexpr MyLiteral(const char(&arr)[N])
+    {
+      std::copy(arr, arr + N, m_str);
+    }
+  };
+
+  template <MyLiteral str>
+  struct AStruct {
+    AStruct()
+    {
+      std::cout << str.m_str << '\n';
+    }
+  };
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    AStruct<MyLiteral<12>("hello world")> a1;
+    // output -> hello world
+
+    // ------------------------------------------------
+
+    AStruct<"hello galaxy"> a2;   // CTAD
+    // output -> hello galaxy
+    // "a2"'s type is AStruct<MyLiteral<13>("hello galaxy")>
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  struct NullOptT {} g_NullOpt;
+
+  struct OptionalInt {
+    constexpr OptionalInt(NullOptT) {}
+    constexpr OptionalInt(unsigned int val) : 
+      m_has_value{ true }, m_value{ val } {}
+
+    const bool m_has_value = false;
+    const uint32_t m_value = 0;
+  };
+
+  // OptionalInt is a structural type
+
+  template <OptionalInt maybe>
+  void Print()
+  {
+    if constexpr (maybe.m_has_value)
+      std::cout << "value = " << maybe.m_value << '\n';
+    else
+      std::cout << "No value\n";
+  }
+
+  int main()
+  {
+    constexpr OptionalInt Opt1(444);
+    Print<Opt1>();        // output -> value = 444
+
+    Print<123>();         // output -> value = 123
+    Print<g_NullOpt>();   // output -> No value
+  }
+*/
+
+/*
+  // closure type is a structural type
+
+  template <auto fn>
+  struct MyStruct {
+    auto foo(int val)
+    {
+      return fn(val);
+    }
+  };
+
+  int main()
+  {
+    MyStruct<[](int x){ return x * x; }> m1;
+    std::cout << m1.foo(111) << '\n'; // output -> 12321
+  }
+
+  // we are holding callable as a structure member 
+  // we are passing a callable as a template argument
+  // which can be used in compile time.
+*/
+
+/*
+  // std::pair and std::array classes can be used as a NTTP
+
+  #include <array>
+
+  template <auto x>
+  struct Mystruct {};
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    Mystruct<std::pair{ 10, 5.43 }> m1; // VALID
+
+    constexpr std::pair p1{ 11, 6.34 };
+    Mystruct<p1> m2; // VALID
+
+    // ------------------------------------------------
+    Mystruct<std::array{ 1, 2, 3, 4, 5 }> m4; // VALID
+
+    constexpr std::array arr{ 1, 2, 3, 4, 5 };
+    Mystruct<arr> m3; // VALID
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <array>
+
+  constexpr int foo()
+  {
+    return 42;
+  }
+
+  struct Lit {
+    int m_x = foo();
+    int m_y;
+    constexpr Lit(int val) : m_y{ val } {}
+  };
+
+  struct Data {
+    int m_i;
+    std::array<double, 5> m_arr;
+    Lit m_Lit;
+  };
+
+  template <auto Obj>
+  void func(){}
+
+
+  int main()
+  {
+    func<Data{ 42, { 1, 2, 3, 4, 5 }, 44 }>();  // VALID
+
+    constexpr Data d2{ 1, { 2 }, 33 };
+    func<d2>(); // VALID
+  }
+*/
+
+/*
+  #include <cmath>  // std::round
+
+  struct Mystruct {
+    double m_val;
+    constexpr Mystruct(double param) : m_val{ param } {}
+
+    // hidden friend function
+    friend std::ostream& operator<<(std::ostream& os, const Mystruct& ms)
+    {
+      return os << ms.m_val;
+    }
+  };
+
+  template <Mystruct ms>
+  int add_vat(int val)
+  {
+    return static_cast<int>(std::round(val * (1 + ms.m_val)));
+  }
+
+  int main()
+  {
+    using namespace std;
+
+    constexpr Mystruct ms1{ 0.18 };
+    cout << ms1 << '\n';  // output -> 0.18
+
+    cout << add_vat<ms1>(100) << '\n';  // output -> 118
+    cout << add_vat<ms1>(377) << '\n';  // output -> 445
+  }
+*/
+
+/*
+                  -------------------------------
+                  | template template parameter |
+                  -------------------------------
+*/
+
+/*
+  #include <vector>
+  #include <list>
+
+  template <typename T, 
+            typename A, 
+            template <typename, typename> typename Con>
+  void func(const Con<T, A>& con){}
+
+
+  int main()
+  {
+    // -------------------------------------------------
+
+    std::vector<int> ivec;
+
+    func(ivec);
+    // function's parameter is std::vector<int, std::allocator<int>>
+    // T    -> int, 
+    // A    -> std::allocator<int>, 
+    // Con  -> std::vector
+
+    // -------------------------------------------------
+
+    std::list<double> dlist;
+
+    func(dlist);
+    // function's parameter is std::list<double, std::allocator<double>>
+    // T    -> double, 
+    // A    -> std::allocator<double>,
+    // Con  -> std::list
+
+    // -------------------------------------------------
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_same
+
+  template <typename T>
+  class AClass {};
+
+  template <template<typename> typename Temp>
+  class Myclass {
+  public:
+    Myclass()
+    {
+      Temp<int> t1;
+      Temp<double> t2;
+    }
+  };
+
+  int main()
+  {
+    Myclass<AClass> m1;
+    // Temp -> `AClass` class template
+    // t1   -> `AClass<int>`
+    // t2   -> `AClass<double>`
+  }
+*/
+
+/*
+  template <int>    // NTTP
+  class AClass {};
+
+  template <template<int> typename Temp>
+  class Myclass {
+  public:
+    Myclass()
+    {
+      Temp<5> t1;
+    }
+  };
+
+  int main()
+  {
+    Myclass<AClass> m1;
+    // Temp -> `AClass<int>` class template
+    // t1   -> `AClass<5>`
+  }
+*/
+
+/*
+  template <auto>    // NTTP
+  class AClass {};
+
+  template <template <auto> typename Temp>
+  class Myclass {
+  public:
+    Myclass()
+    {
+      Temp<5> t1;
+      Temp<61u> t2;
+      Temp<3.14> t3;
+    }
+  };
+
+  int main()
+  {
+    Myclass<AClass> m1;
+  }
+*/
+
+/*
+  #include <tuple>
+
+  template <typename T>
+  class A {};
+
+  template <typename T>
+  class B {};
+
+  template <typename T>
+  class C {};
+
+  template <template <typename> typename ...Ts>
+  class Myclass {
+  public:
+    Myclass()
+    {
+      std::cout << typeid(Myclass).name() << '\n';
+      std::cout << typeid(std::tuple<Ts<int>...>).name() << '\n';
+    }
+  };
+
+  // Myclass sınıf template'inin, template parametresi
+  // template template parametre türünden.
+
+  // Myclass sınıf template'inin template parametresi,
+  // template parametre paketi.
+
+  int main()
+  {
+    Myclass<A, B, C> m1;
+    // output ->
+    //  class Myclass<class A, class B, class C>
+    //  class std::tuple<class A<int>, class B<int>, class C<int>>
+  }
+*/
+
+/*
+  #include <vector>
+  #include <list>
+
+
+  template <typename T, typename A,
+            template <typename, typename> typename Con>
+  std::ostream& operator<<(std::ostream& os, const Con<T,A>& con)
+  {
+    for (const auto& elem : con)
+      os << elem << ' ';
+
+    return os;
+  }
+
+  int main()
+  {
+    // -------------------------------------------------
+
+    std::vector ivec{ 10, 20, 30, 40, 50 };
+
+    std::cout << ivec <<'\n';
+    // output -> 10 20 30 40 50
+
+    // -------------------------------------------------
+
+    std::list ilist{ 2, 3, 5, 7, 11, 13, 15 };
+
+    std::cout << ilist << '\n';
+    // output -> 2 3 5 7 11 13 15
+
+    // -------------------------------------------------
+
+  }
+*/
+
+/*
+  template <template <typename ...> typename Con>
+  void foo()
+  {
+    std::cout << "foo called\n";
+  }
+
+  template <typename T> class T1 {};
+  template <typename T, typename U> class T2 {};
+  template <typename T, typename U, typename V> class T3 {};
+
+  int main()
+  {
+    foo<T1>();    // output -> foo called
+    foo<T2>();    // output -> foo called
+    foo<T3>();    // output -> foo called
+  }
+*/
+
+/*
+  // how to write an inserter functin template 
+  // for both std::map and std::vector classes can use.
+
+  #include <map>
+  #include <vector>
+  #include <string>
+
+  template <typename T, typename U>
+  std::ostream& operator<<(std::ostream& os, const std::pair<T,U>& p)
+  {
+    return os << '[' << p.first << ',' << p.second << ']';
+  }
+
+  template <template <typename ...> typename Con, typename ...Ts>
+  std::ostream& operator<<(std::ostream& os, const Con<Ts...>& con)
+  {
+    for (const auto& elem : con)
+      os << elem << ' ';
+    return os;
+  }
+
+  // operator<< function template does have 2 template parameter
+  // 1st template parameter is a template template parameter
+  // 2nd template parameter is a type parameter pack
+
+  // 1'inci parametreye herhangi bir sayıda tür parametresine 
+  // sahip bir sınıf şablonu geçilebilir.
+
+  int main()
+  {
+    // -------------------------------------------------
+
+    std::vector ivec{ 10, 20, 30, 40, 50 };
+
+    std::cout << ivec <<'\n';
+    // output -> 10 20 30 40 50
+
+    // -------------------------------------------------
+
+    std::map<int, int> ii_map{ { 1, 2 }, { 3, 4 }, { 5, 6 }};
+
+    std::cout << ii_map << '\n';
+    // output -> [1,2] [3,4] [5,6]
+
+    // -------------------------------------------------
+  }
+*/
+
+/*
+                      ---------------------
+                      | variable template |
+                      ---------------------
+*/
+
+/*
+  template <typename T>
+  constexpr T PI = (T)3.1415926535897932385L;
+
+  template <class T>
+  T circular_area(T r)
+  {
+    return PI<T> * r * r;
+  }
+
+  template <typename T>
+  constexpr bool bx = sizeof(T) > 4;
+
+  int main()
+  {
+    constexpr int x = PI<int>;        // x -> 3
+    constexpr double y = PI<double>;  // y -> 3.141592653589793
+
+    auto area = circular_area(5.6);  
+    // area -> 78.5398 (double)
+
+    auto area_2 = circular_area(5.2L);
+    // area_2 -> 85.3273 (long double)
+
+    constexpr bool b1 = bx<int>;      // b1 -> false
+    constexpr bool b2 = bx<double>;   // b2 -> true
+  }
+*/
+
+/*
+  template <std::size_t N>
+  constexpr std::size_t factorial = N * factorial<N - 1>;
+
+  template <> // explicit specialization
+  constexpr std::size_t factorial<0> = 1u;
+
+  int main()
+  {
+    constexpr auto val = factorial<5>;
+    // val -> 120u
+  }
+*/
+
+/*
+  template <std::size_t Base, std::size_t Exp>
+  constexpr std::size_t power = Base * power<Base, Exp - 1>;
+
+  template <std::size_t Base>
+  constexpr std::size_t power<Base, 0> = 1u;
+
+
+  int main()
+  {
+    static_assert(power<3, 4> == 81u);    // VALID
+    static_assert(power<2, 10> == 1024u); // VALID
+
+    constexpr auto val = power<5, 4>;
+    // val -> 625u
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_pointer, std::is_integral  
+
+  template <typename T>
+  constexpr bool IsPointer_v = std::is_pointer<T>::value;
+
+  template <typename T>
+  constexpr bool IsIntegral_v = std::is_integral<T>::value;
+*/
+
+/*
+  // fold expression can be used in variable template
+
+  template <int ...Vals>  // template non-type parameter pack
+  constexpr int i_arr[sizeof...(Vals)] = { Vals... };
+
+  int main()
+  {
+    constexpr int val = i_arr<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>[5];
+    // val -> 6
+
+    constexpr int val_2 = i_arr<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>[8];
+    // val_2 -> 9
+
+    for (auto elem : i_arr<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>)
+      std::cout << elem << ' ';
+    // output -> 1 2 3 4 5 6 7 8 9 10
+  }
+*/
+
+/*
+  template <int ...Vals>
+  constexpr int sum = (... + Vals); // unary left fold
+
+  template <int ...Vals>
+  constexpr int sum_square = (... + (Vals * Vals)); // unary left fold
+
+  int main()
+  {
+    constexpr int i1 = sum<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>;
+    // i1 -> 55
+
+    constexpr int i2 = sum_square<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>;
+    // i2 -> 385
+  }
+*/
+
+/*
+  template <int ...Vals>
+  constexpr int div_left = (... / Vals); // unary left fold
+
+  template <int ...Vals>
+  constexpr int div_right = (Vals / ...); // unary right fold
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    constexpr auto x1 = div_left<500, 10, 5, 2>;
+    // x1 -> 5
+
+    // (((500 / 10) / 5) / 2)
+    // 500 / 10 = 50
+    // 50 / 5 = 10
+    // 10 / 2 = 5
+
+    // ------------------------------------------------
+
+    constexpr auto x2 = div_right<500, 10, 5, 2>;
+    // x2 -> 100
+
+    // (500 / (10 / (5 / 2)))
+    // 5 / 2 = 2
+    // 10 / 2 = 5
+    // 500 / 5 = 100
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <int N>
+  constexpr bool isPositive{ N > 0 };
+
+  int main()
+  {
+    constexpr bool b1 = isPositive<10>;  // b1 -> true
+    constexpr bool b2 = isPositive<-5>;  // b2 -> false
+  }
+*/
+
+/*
+  template <auto N>
+  constexpr bool isPositive{ N > 0 };
+
+  class MyInt {
+  public:
+    int m_x;
+    constexpr MyInt(int val) : m_x{ val } {}
+    constexpr bool operator>(const MyInt& other) const
+    {
+      return m_x > other.m_x;
+    }
+  };
+
+  int main()
+  {
+    constexpr bool b1 = isPositive<MyInt{ 98 }>;  // b1 -> true
+    constexpr bool b2 = isPositive<MyInt{ -5 }>;  // b2 -> false
+  }
+*/
+
+/*
+  #include <concepts> // std::integral
+
+  template <std::integral T, typename U>
+  constexpr std::size_t sz = static_cast<T>(sizeof(U));
+
+  class Myclass {
+    int m_arr[6]{};
+  };
+
+  int main()
+  {
+    constexpr auto s1 = sz<int, Myclass>;
+    // s1 -> 24u
+  }
+*/
+
+/*
+            --------------------------------------------
+            | default arguments in template parameters |
+            --------------------------------------------
+*/
+
+/*
+  // --------------------------------------------------------
+
+  // for class templates, only the last template parameter 
+  // can have a default argument
+
+  template <typename T = int, typename U>   // syntax error
+  class Myclass {};
+  // error: no default argument for 'U'
+
+  // --------------------------------------------------------
+
+  // for function templates, all template parameters
+  // can have default arguments
+
+  template <typename T = int, typename U>   // VALID
+  void func();
+
+  // --------------------------------------------------------
+*/
+
+/*
+  template <typename T = double, typename U = int>
+  class Myclass {};
+
+  Myclass<> x1;
+  // "x1"'s type is  Myclass<double, int> specialization
+
+  Myclass<int> x2;  
+  // "x2"'s type is  Myclass<int, int> specialization
+
+  Myclass<int, double> x3;
+  // "x3"'s type is  Myclass<int, double> specialization
+*/
+
+/*
+  #include <vector>
+  #include <string>
+  #include <set>
+  #include <unordered_set>
+  #include <memory>
+
+  template <typename T>
+  struct Default_Delete {
+    operator() (T* p)
+    {
+      delete p;
+    }
+  };
+
+  template <typename T, typename D = Default_Delete<T>>
+  class Unique_Ptr {
+  private:
+    T* mp_obj;
+  public:
+    Unique_Ptr(T* p = nullptr) : mp_obj{ p } {}
+    ~Unique_Ptr() 
+    { 
+      if (mp_obj) 
+        D{}(mp_obj);
+    }
+
+  };
+
+  int main()
+  {
+    using namespace std;
+
+    // --------------------------------------------------------
+
+    vector<int> ivec;
+    // "ivec"'s type is vector<int, std::allocator<int>> specialization
+    // there is a default argument for the 2nd template parameter
+
+    // --------------------------------------------------------
+
+    string str;
+    // "str"'s type basic_string<char, char_traits<char>, 
+    //                                              allocator<char>> 
+
+    // --------------------------------------------------------
+
+    set<int> iset;
+    // "iset"'s type is set<int, std::less<int>, std::allocator<int>>
+
+    // --------------------------------------------------------
+
+    unordered_set<int> uo_iset;
+    // "uo_iset"'s type is 
+    // unordered_set<int, std::hash<int>, std::equal_to<int>,
+    //                                          std::allocator<int>>
+
+    // --------------------------------------------------------
+
+    unique_ptr<string> uptr;
+    // "uptr"'s type is unique_ptr<string, default_delete<string>>
+
+    // --------------------------------------------------------
+  }
+*/
+
+/*
+  #include <string>
+  #include <memory>   // std::unique_ptr
+
+  template <typename T>
+  struct Default_Delete {
+    operator() (T* p)
+    {
+      delete p;
+    }
+  };
+
+  template <typename T, typename D = Default_Delete<T>>
+  class Unique_Ptr {
+  private:
+    T* mp_obj;
+  public:
+    Unique_Ptr(T* p = nullptr) : mp_obj{ p } {}
+    ~Unique_Ptr() 
+    { 
+      if (mp_obj) 
+        D{}(mp_obj);
+    }
+
+  };
+
+  int main()
+  {
+    std::unique_ptr<std::string> up_str;
+    // "up_str"'s type is unique_ptr<string, default_delete<string>>
+  }
+*/
+
+/*
+  #include <vector>
+  #include <list>
+  #include <stack>  // std::stack
+  #include <queue>  // std::queue, std::priority_queue
+
+  // general default argument themes that have been used. 
+
+  template <typename T, typename U = T>
+  class AClass {};
+
+  // container adaptor
+  template <typename T, typename U = std::vector<T>>
+  class BClass {};
+
+
+  int main()
+  {
+    // --------------------------------------------------------------
+
+    BClass<int> b1;
+    // "b1"'s type is BClass<int, std::vector<int>> specialization
+
+    BClass<int, std::list<int>> b2;
+    // "b2"'s type is BClass<int, std::list<int>> specialization
+
+    // --------------------------------------------------------------
+
+    std::stack<int> i_stack;  
+    // std::stack is a container adaptor
+    // "i_stack"'s type is stack<int, deque<int>>
+
+    std::queue<int> i_queue;
+    // std::queue is a container adaptor
+    // "i_queue"'s type is queue<int, deque<int>>
+
+    std::priority_queue<int> i_pqueue;
+    // std::priority_queue is a container adaptor
+    // "i_pqueue"'s type is priority_queue<int, vector<int>, less<int>>
+
+    // --------------------------------------------------------------
+  }
+*/
+
+/*
+  // --------------------------------------------------------
+
+  void foo(int, int, int = 0);
+  void foo(int, int = 0, int);
+  void foo(int = 0, int, int);
+  // compiler merge those redeclarations into 
+  // a single function declaration
+
+  // --------------------------------------------------------
+
+  void bar(int, int = 0, int);  // syntax error
+  // error: default argument missing for parameter 3 
+  // of 'void bar(int, int, int)'
+
+  // --------------------------------------------------------
+
+  void baz(int = 0, int, int);  // syntax error
+  // error: default argument missing for parameter 2 
+  // of 'void baz(int, int, int)'
+  // error: default argument missing for parameter 3 
+  // of 'void baz(int, int, int)'
+
+  // --------------------------------------------------------
+*/
+
+/*
+  #include <concepts> // std::same_as
+
+  template <typename, typename U, typename V = char>
+  class Myclass;    // forward declaration
+
+  template <typename, typename U = int, typename V>
+  class Myclass;    // forward declaration
+
+  template <typename T = double, typename U, typename V>
+  class Myclass {}; // definition
+
+  int main()
+  {
+    using namespace std;
+
+    Myclass<> m1;
+
+    static_assert(same_as<decltype(m1), Myclass<double, int, char>>);
+    // VALID
+  }
+*/
+
+/*
+  #include <concepts> // std::same_as
+
+  template <typename, typename>
+  struct Mystruct_1 {};
+
+  template <typename, typename>
+  struct Mystruct_2 {};
+
+  template <typename T, 
+            typename U, 
+            template<typename, typename> typename Con = Mystruct_1>
+  class Myclass {};
+
+  // Myclass sınıf şablonunun 3. template parametresi
+  // template template parametre ve 
+  // default argüman olarak Mystruct_1 sınıf şablonunu alıyor.
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    Myclass<int, double> m1;
+    // "m1"'nin türü Myclass<int, double, Mystruct_1> olacak.
+
+    Myclass<int, double, Mystruct_1> m2;
+    // "m2"'nin türü Myclass<int, double, Mystruct_1> olacak.
+
+    static_assert(std::same_as<decltype(m1), decltype(m2)>);  // VALID
+
+    // ------------------------------------------------
+
+    Myclass<int, double, Mystruct_2> m3;
+    // "m3"'nin türü Myclass<int, double, Mystruct_2> olacak.
+
+    static_assert(std::same_as<decltype(m1), decltype(m3)>);
+    // error: static assertion failed
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <typename T = int>
+  T func(T x = {}) 
+  {
+    std::cout << "x = " << x << '\n';
+    return x;
+  }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    func();     // output -> x = 0
+    // for template parameter default argument is used
+    // for function parameter default argument is used
+
+    // ------------------------------------------------
+
+    func(3.98); // output -> x = 3.98
+
+    // ------------------------------------------------
+    
+    func<std::string>();  // output -> x = ""
+
+    // for template parameter "std::string" is used
+    // for function parameter default argument is used 
+    // which is default constructed std::string -> empty string
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <functional>  // std::less, std::greater
+
+  template <typename T, typename F = std::less<T>>
+  bool func(T x, F f = {})
+  {
+    return f(x, x + 1);
+  }
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    // ------------------------------------------------
+
+    std::cout << func(4) << '\n';   
+    // output -> true
+
+    // no argument sent to 2nd template parameter
+    // default argument is used -> std::less<int>
+    // function's 2nd parameter is std::less<int>{}
+
+    // ------------------------------------------------
+
+    std::cout << func(10, std::greater{}) << '\n';  
+    // output -> false
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+                ---------------------------------
+                | explicit(full) specialization |
+                ---------------------------------
+*/
+
+/*
+  // primary template and explicit specialization's interface
+  // can be different.
+
+  template <typename T>
+  struct Mystruct {
+    Mystruct() 
+    { 
+      std::cout << "primary template\n"; 
+    }
+
+    void f1(){ std::cout << "Mystruct::f1\n"; }
+    void f2(){ std::cout << "Mystruct::f2\n"; }
+  };
+  // primary(master) class template of Mystruct
+
+  template <>
+  struct Mystruct<int> {
+    Mystruct() 
+    { 
+      std::cout << "Mystruct<int> explicit specialization\n"; 
+    }
+
+    void f3(){ std::cout << "Mystruct<int>::f3\n"; }
+    void f4(){ std::cout << "Mystruct<int>::f4\n"; }
+  };
+  // explicit specialization of `Mystruct` class template 
+  // for `int` type
+
+  int main()
+  {
+    Mystruct<char> m1;
+    m1.f1();
+    // output ->
+    //  primary template
+    //  Mystruct::f1
+
+    Mystruct<double> m2;
+    m2.f2();
+    // output ->
+    //  primary template
+    //  Mystruct::f2
+
+    Mystruct<int> m3;
+    m3.f3();
+    // output ->
+    //  Mystruct<int> explicit specialization
+    //  Mystruct<int>::f3
+  }
+*/
+
+/*
+  // It can be more than one explicit specialization
+
+  template <typename T, typename U>
+  class Myclass {};
+  // primary template of Myclass
+
+  template <>
+  class Myclass<int, double> {};
+  // explicit specialization of Myclass for Myclass<int, double>
+
+  template <>
+  class Myclass<double, int> {};
+  // explicit specialization of Myclass for Myclass<double, int>
+*/
+
+/*
+  template <int N>
+  class Myclass {
+  public:
+    Myclass()
+    {
+      std::cout << "primary template\n";
+    }
+  };
+  // primary template of Myclass `class template`
+
+  template <>
+  class Myclass<10> {
+  public:
+    Myclass()
+    {
+      std::cout << "explicit specialization for Myclass<10>\n";
+    }
+  };
+  // explicit specialization of Myclass for Myclass<10>
+
+  template <>
+  class Myclass<20> {
+  public:
+    Myclass()
+    {
+      std::cout << "explicit specialization for Myclass<20>\n";
+    }
+  };
+  // explicit specialization of Myclass for Myclass<20>
+
+  int main()
+  {
+    Myclass<5> m1;
+    // output -> primary template
+
+    Myclass<10> m2;
+    // output -> explicit specialization for Myclass<10>
+
+    Myclass<20> m3;
+    // output -> explicit specialization for Myclass<20>
+  }
+*/
+
+/*
+  // to create an explicit specialization
+  // primary template CAN BE an incomplete type,
+  // if only the specializations will be used.
+
+  template <int N>
+  class Myclass;  // incomplete type
+  // primary template of Myclass
+
+  template <>
+  class Myclass<3> {
+  public:
+    Myclass()
+    {
+      std::cout << "explicit specialization for Myclass<3>\n";
+    }
+  };
+  // explicit specialization of Myclass for Myclass<10>
+
+  template <>
+  class Myclass<21> {
+  public:
+    Myclass()
+    {
+      std::cout << "explicit specialization for Myclass<21>\n";
+    }
+  };
+  // explicit specialization of Myclass for Myclass<20>
+
+  int main()
+  {
+    Myclass<3> m1;
+    // output -> explicit specialization for Myclass<3>
+
+    Myclass<21> m2;
+    // output -> explicit specialization for Myclass<21>
+  }
+*/
+
+/*
+  // C++98
+  // static const integral data members can be initialized
+  // in the class definition
+
+  template <std::size_t N>
+  struct Factorial {
+    static const std::size_t value = N * Factorial<N - 1>::value;
+  };
+  // primary template - Factorial class template
+
+  template <> 
+  struct Factorial<0> {
+    static const std::size_t value = 1;
+  };
+  // base case - Factorial<0> explicit specialization
+  // explicit specialization of Factorial class template 
+
+  int main()
+  {
+    Factorial<6>::value;  // 720u
+  }
+*/
+
+/*
+  // printing from 1 to 100 without using loop.
+
+  template <int N>
+  struct Print : Print<N - 1> {
+    Print()
+    {
+      std::cout << N << ' ';
+    }
+  };
+  // primary template - Print class template
+
+  template <>
+  struct Print<0> {};
+  // base case - Print<0> explicit specialization
+  // explicit specialization of Print class template
+
+  int main()
+  {
+    Print<100> p1;
+    // output ->
+    // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 
+    // 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 
+    // 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 
+    // 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 
+    // 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 
+    // 94 95 96 97 98 99 100
+  }
+*/
+
+/*
+  // classes member function can also be explicitly specialized
+
+  template <typename T>
+  struct Mystruct {
+    void func(T)
+    {
+      std::cout << "primary template for Mystruct::func()\n";
+    }
+  };
+
+  template <>
+  void Mystruct<int>::func(int)
+  {
+    std::cout << 
+      "explicit specialization for Mystruct<int>::func(int)\n";
+  }
+
+  int main()
+  {
+    Mystruct<double> m1;
+    m1.func(3.14);
+    // output -> primary template for Mystruct::func()
+
+    Mystruct<int> m2;
+    m2.func(42);
+    // output -> explicit specialization for Mystruct<int>::func(int)
+
+    Mystruct<char> m3;
+    m3.func('A');
+    // output -> primary template for Mystruct::func()
+  }
+*/
+
+/*
+  - fonksiyon şablonlarında(function template) 
+    function overload resolution'a template'in kendisi giriyor.
+
+  - eğer template'in kendisi seçilirse ve seçilen 
+    fonksiyon şablonu bir explicit specialization ise
+    bu durumda explicit specialization seçilir.
+*/
+
+/*
+  template <typename T>
+  void foo(T)
+  {
+    std::cout << "primary template\n";
+  }
+  // primary template of "foo" function template
+
+  template <>
+  void foo<int>(int)
+  {
+    std::cout << "explicit specialization for foo(int)\n";
+  }
+  // explicit specialization of "foo" function template for "int"
+
+  int main()
+  {
+    foo(4.5);
+    // output -> primary template
+
+    foo(12);
+    // output -> explicit specialization for foo(int)
+  }
+*/
+
+/*
+  template <typename T>
+  void foo(T)
+  {
+    std::cout << "primary template\n";
+  }
+  // primary template of "foo" function template
+
+  template <>
+  void foo<int>(int)
+  {
+    std::cout << "explicit specialization for foo(int)\n";
+  }
+  // explicit specialization of "foo" function template for "int"
+
+  void foo(int)
+  {
+    std::cout << "non-template function.\n";
+  }
+  // non-template function
+
+  int main()
+  {
+    foo(4.5);
+    // output -> primary template
+
+    foo(12);
+    // output -> non-template function.
+
+    // functions which are in overload resolution
+    // 1. primary function template
+    // 2. non-template function
+    // so non-template function will be selected(exact match)
+  }
+*/
+
+/*
+  template <typename T>
+  void func(T)
+  {
+    std::cout << "primary template func(T)\n";
+  }
+
+  template <>
+  void func<int*>(int*)
+  {
+    std::cout << "explicit specialization for func(int*)\n";
+  }
+  // explicit specialization of func(T) function template
+
+  template <typename T>
+  void func(T*)
+  {
+    std::cout << "primary template func(T*)\n";
+  }
+
+  int main()
+  {
+    int* p = nullptr;
+    func(p);  // output -> primary template func(T*)
+
+    // functions which are in overload resolution
+    // 1. primary function template func(T)
+    // 2. primary function template func(T*)  
+    // -> 2(more specific) is selected with partial ordering rules.
+  }
+*/
+
+/*
+  template <typename T>
+  void func(T)
+  {
+    std::cout << "primary template func(T)\n";
+  }
+  // primary function template of func(T) function template
+
+  template <typename T>
+  void func(T*)
+  {
+    std::cout << "primary template func(T*)\n";
+  }
+  // primary function template of func(T*) function template
+
+  template <>
+  void func(int*)
+  {
+    std::cout << "explicit specialization for func(int*)\n";
+  }
+  // explicit specialization of func(T*) function template
+
+
+  int main()
+  {
+    int* p = nullptr;
+    func(p);  // output -> explicit specialization for func(int*)
+
+    // functions which are in overload resolution
+    // 1. primary function template func(T)
+    // 2. primary function template func(T*) --> selected
+    
+    // 2nd primary function template has a specialization
+    // for int* type, so this specialization is selected.
+  }
+*/
+
+/*
+  template <typename T>
+  void func(T)
+  {
+    std::cout << "primary template func(T)\n";
+  }
+  // primary function template of func(T) function template
+
+  template <>
+  void func(int*)
+  {
+    std::cout << "explicit spec of func(T) for func(int*)\n";
+  }
+  // explicit specialization of func(T) function template
+
+  template <typename T>
+  void func(T*)
+  {
+    std::cout << "primary template func(T*)\n";
+  }
+  // primary function template of func(T*) function template
+
+  template <>
+  void func(int*)
+  {
+    std::cout << "explicit spec of func(T*) for func(int*)\n";
+  }
+  // explicit specialization of func(T*) function template
+
+
+  int main()
+  {
+    int* p = nullptr;
+    func(p);  // output -> explicit spec of func(T*) for func(int*)
+
+    // functions which are in overload resolution
+    // 1. primary function template func(T)
+    // 2. primary function template func(T*) --> selected
+    
+    // 2nd primary function template has a specialization
+    // for int* type, so this specialization is selected.
+  }
+*/
+
+/*
+  // explicit specialization for static data members
+
+  template <typename T>
+  struct Mystruct {
+    static int ms_x;
+  };
+
+  template <typename T>
+  int Mystruct<T>::ms_x = 11;
+
+  template <>
+  int Mystruct<int>::ms_x = 22;
+
+  int main()
+  {
+    std::cout << "Mystruct<double>::ms_x = " 
+              << Mystruct<double>::ms_x <<'\n';
+    // output -> Mystruct<double>::ms_x = 11
+    
+    std::cout << "Mystruct<int>::ms_x = " 
+              << Mystruct<int>::ms_x << '\n';
+    // output -> Mystruct<int>::ms_x = 22
+  }
+*/
+
+/*
+  template <typename T>
+  constexpr std::size_t sz = sizeof(T);
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    auto sum = sz<int> + sz<double> + sz<long long>;
+
+    std::cout << "sum = " << sum << '\n';
+    // output -> sum = 20
+
+    // ------------------------------------------------
+
+    auto sum_2 = sz<int> + sz<void>;  // syntax error
+
+    // void is an incomplete type, 
+    // so `void` can not be an operand of `sizeof` operator.
+    
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  // explicit specialization for variable template 
+
+  template <typename T>
+  constexpr std::size_t sz = sizeof(T);
+  
+  template <>
+  constexpr std::size_t sz<void> = 0;
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    auto sum = sz<int> + sz<double> + sz<long long>;
+
+    std::cout << "sum = " << sum << '\n';
+    // output -> sum = 20
+
+    // ------------------------------------------------
+
+    auto sum_2 = sz<int> + sz<void>;
+
+    std::cout << "sum_2 = " << sum_2 << '\n';
+    // output -> sum_2 = 4
+    
+    // ------------------------------------------------
+  }
+*/
+
+/*
+                    --------------------------
+                    | partial specialization |
+                    --------------------------
+*/
+
+/*
+  template <typename T>
+  struct Mystruct {};
+  // primary template of Mystruct
+
+  template <typename T>
+  struct Mystruct<T*> {};
+  // partial specialization of Mystruct for (pointer types)
+  // not for a specific pointer type(that is explicit specialization)
+
+  template <typename T>
+  struct Mystruct<T&> {};
+  // partial specialization of Mystruct for (reference types)
+
+  template <typename T>
+  struct Mystruct<T**> {};
+  // partial specialization of Mystruct for (pointer to pointer types)
+*/
+
+/*
+  template <typename T>
+  struct Mystruct {
+    Mystruct()
+    {
+      std::cout << "primary template of Mystruct class template\n";
+    }
+  };
+  // primary template of Mystruct class template
+
+  template <typename T>
+  struct Mystruct<T*> {
+    Mystruct()
+    {
+      std::cout << 
+        "Mystruct<T*> partial specialization for pointer types\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // for pointer types
+
+  int main()
+  {
+    Mystruct<int> m1;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<double> m2;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<int*> m3;
+    // output -> Mystruct<T*> partial specialization for pointer types
+
+    Mystruct<float*> m4;
+    // output -> Mystruct<T*> partial specialization for pointer types
+
+    Mystruct<int**> m5;
+    // output -> Mystruct<T*> partial specialization for pointer types
+  }
+*/
+
+/*
+  template <typename T, typename U>
+  struct Mystruct {
+    Mystruct()
+    {
+      std::cout << "primary template of Mystruct class template\n";
+    }
+  };
+  // primary template of Mystruct class template
+
+  template <typename T>
+  struct Mystruct<T, T> {
+    Mystruct()
+    {
+      std::cout << "Mystruct<T, T> partial specialization\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // have both template parameters are same type
+
+  int main()
+  {
+    Mystruct<int, double> m1;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<int, int> m2;
+    // output -> Mystruct<T, T> partial specialization
+
+    Mystruct<double, double*> m3;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<double*, double*> m4;
+    // output -> Mystruct<T, T> partial specialization
+  }
+*/
+
+/*
+  template <typename T, typename U>
+  struct Mystruct {
+    Mystruct()
+    {
+      std::cout << "primary template of Mystruct class template\n";
+    }
+  };
+  // primary template of Mystruct class template
+
+  template <typename T>
+  struct Mystruct<T, T*> {
+    Mystruct()
+    {
+      std::cout << "Mystruct<T, T*> partial specialization\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // have 1st template parameter T and 2nd template parameter T* type
+
+  int main()
+  {
+    Mystruct<int, double> m1;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<int, int> m2;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<double, double*> m3;
+    // output -> Mystruct<T, T*> partial specialization
+
+    Mystruct<double*, double*> m4;
+    // output -> primary template of Mystruct class template
+  }
+*/
+
+/*
+  template <typename T, typename U>
+  struct Mystruct {
+    Mystruct()
+    {
+      std::cout << "primary template of Mystruct class template\n";
+    }
+  };
+  // primary template of Mystruct class template
+
+  template <typename T>
+  struct Mystruct<T&, T&> {
+    Mystruct()
+    {
+      std::cout << "Mystruct<T&, T&> partial specialization\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // for both template parameters are l value reference types
+
+  int main()
+  {
+    Mystruct<int, int> m1;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<int&, int&> m2;
+    // output -> Mystruct<T&, T&> partial specialization
+  }
+*/
+
+/*
+  #include <tuple>
+  #include <string>
+
+  template <typename T>
+  struct Mystruct {
+    Mystruct()
+    {
+      std::cout << "primary template of Mystruct class template\n";
+    }
+  };
+  // primary template of Mystruct class template
+
+  template <typename T, typename U, typename M, typename N>
+  struct Mystruct<std::tuple<T, U, M, N>> {
+    Mystruct()
+    {
+      std::cout << 
+        "Mystruct<std::tuple<T, U, M, N>> partial specialization\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // for std::tuple<T, U, M, N> type
+
+  int main()
+  {
+    Mystruct<int> m1;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<std::tuple<int, int, int, int>> m2;
+    // output -> Mystruct<std::tuple<T, U, M, N>> partial specialization
+
+    Mystruct<std::tuple<int, double, char, std::string>> m3;
+    // output -> Mystruct<std::tuple<T, U, M, N>> partial specialization
+  }
+*/
+
+/*
+  #include <type_traits>  
+  // std::integral_constant, std::true_type, std::false_type
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    constexpr int i1 = std::integral_constant<int, 5>::value;
+    // i1 -> 5
+
+    constexpr bool b1 = std::integral_constant<bool, true>::value;
+    // b1 -> true
+
+    // ------------------------------------------------
+
+    std::integral_constant<bool, true>::value_type b2 = false;
+    // "b2"'s type is bool 
+
+    std::integral_constant<int, 5>::value_type i2 = 10;
+    // "i2"'s type is int
+
+    // ------------------------------------------------
+
+    std::integral_constant<int, 5>::type i2;
+    // "i2"'s data type is std::integral_constant<int, 5>
+
+    // ------------------------------------------------
+
+    std::true_type;
+    // "std::true_type" is a type alias 
+    // for "std::integral_constant<bool, true>"
+
+    std::false_type;
+    // "std::false_type" is a type alias
+    // for "std::integral_constant<bool, false>"
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <type_traits>
+
+  template <typename T>
+  struct Mystruct : std::false_type {};
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    constexpr bool b1 = Mystruct<int>::value; // b1 -> false
+
+    // ------------------------------------------------
+
+    Mystruct<int>::type;
+    // "Mystruct<int>::type" is a type alias for "std::false_type"
+    // which is a type alias for "std::integral_constant<bool, false>"
+
+    // ------------------------------------------------
+
+    Mystruct<int>::value_type b2 = true;
+    // "b2"'s type is bool
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  // metafunctions are written 
+  // using std::false_type and std::true_type
+
+  #include <type_traits>
+
+  template <typename T>
+  struct IsPointer : std::false_type {};
+  // primary template for IsPointer metafunction
+
+  template <typename T>
+  struct IsPointer<T*> : std::true_type {};
+  // partial specialization for IsPointer metafunction
+  // for pointer types
+
+  template <typename T>
+  constexpr bool IsPointer_v = IsPointer<T>::value;
+  // variable template for IsPointer metafunction
+
+  int main()
+  {
+    constexpr bool b1 = IsPointer<int>::value;  // b1 -> false
+    constexpr bool b2 = IsPointer<int*>::value; // b2 -> true
+
+    constexpr bool b3 = IsPointer_v<double>;  // b3 -> false
+    constexpr bool b4 = IsPointer_v<double*>; // b4 -> true
+  }
+*/
+
+/*
+  #include <memory> // std::unique_ptr
+
+  int main()
+  {
+    std::unique_ptr<int> iptr1(new int);
+    std::unique_ptr<int[]> iptr2(new int[5]);
+
+    auto x = *iptr1;  // VALID
+
+    // ------------------------------------------------
+
+    auto y = *iptr2;  // syntax error
+    // error: no match for 'operator*' 
+    // (operand type is 'std::unique_ptr<int []>')
+
+    auto z = iptr2[3];  // VALID
+
+    // operator* is not defined for  
+    // std::unique_ptr<T[]> partial specialization 
+
+    // operator[] is defined for 
+    // std::unique_ptr<T[]> partial specialization
+
+    // ------------------------------------------------
+
+    // default_delete's partial specialization for T[] type
+    // is using array delete expression
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template<typename T>
+  struct Mystruct {
+    Mystruct()
+    {
+      std::cout << "primary template of Mystruct class template\n";
+    }
+  };
+  // primary template of Mystruct class template
+
+  template<typename T>
+  struct Mystruct<T[5]> {
+    Mystruct()
+    {
+      std::cout << "Mystruct<T[5]> partial specialization\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // for 5 element array types
+
+  template<typename T>
+  struct Mystruct<T[12]> {
+    Mystruct()
+    {
+      std::cout << "Mystruct<T[12]> partial specialization\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // for 12 element array types
+
+  template<typename T>
+  struct Mystruct<T[]> {
+    Mystruct()
+    {
+      std::cout << "Mystruct<T[]> partial specialization\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // for incomplete array types
+
+  int main()
+  {
+    Mystruct<int[7]> m1;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<int[5]> m2;
+    // output -> Mystruct<T[5]> partial specialization
+
+    Mystruct<double[12]> m3;
+    // output -> Mystruct<T[12]> partial specialization
+
+    Mystruct<double> m4;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<int[]> m5;
+    // output -> Mystruct<T[]> partial specialization
+  }
+*/
+
+/*
+  template <typename T, int N>
+  struct Mystruct {
+    Mystruct()
+    {
+      std::cout << "primary template of Mystruct class template\n";
+    }
+  };
+  // primary template of Mystruct class template
+
+  template <typename T>
+  struct Mystruct<T, 20> {
+    Mystruct()
+    {
+      std::cout << "Mystruct<T, 20> partial specialization\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // for 2nd template parameter is 20
+*/
+
+/*
+  #include <concepts>   // std::integral, std::floating_point
+  #include <string>
+
+  template <typename T>
+  struct X {
+    X() { std::cout << "primary template\n"; }  
+  };
+
+  template <std::integral T>
+  struct X<T> {
+    X() { std::cout << "integral specialization\n"; }
+  };
+  // partial specialization for X class template
+  // for integral types
+
+  template <std::floating_point T>
+  struct X<T> {
+    X() { std::cout << "floating_point specialization\n"; }
+  };
+  // partial specialization for X class template
+  // for floating point types
+
+  int main()
+  {
+    X<int> x1;            // output -> integral specialization
+    X<char> x2;           // output -> integral specialization
+    X<double> x3;         // output -> floating_point specialization
+    X<std::string> x4;    // output -> primary template
+    X<int*> x5;           // output -> primary template
+  }
+*/
+
+/*
+  #include <ranges> // std::ranges::range(concept)
+  #include <vector>
+  #include <stack>
+
+  template <typename T>
+  struct Mystruct {
+    Mystruct()
+    {
+      std::cout << "primary template of Mystruct class template\n";
+    }
+  };
+
+  template <std::ranges::range R>
+  struct Mystruct<R> {
+    Mystruct()
+    {
+      std::cout << "partial specialization for range types\n";
+    }
+  };
+  // partial specialization for Mystruct class template
+  // for types that satisfy the std::ranges::range concept
+
+  int main()
+  {
+    Mystruct<int> m1;
+    // output -> primary template of Mystruct class template
+
+    Mystruct<std::vector<int>> m2;
+    // output -> partial specialization for range types
+
+    Mystruct<std::stack<int>> m3;
+    // output -> primary template of Mystruct class template
+  }
+*/
+
+/*
+                  ------------------------------
+                  | variadic templates (C++11) |
+                  ------------------------------
+*/
+
+/*
+  template <typename ...Args>
+  class AClass {};
+  // template type parameter pack
+
+  template <int ...Args>
+  class BClass {};
+  // non-type template parameter pack 
+
+  template <template <typename> typename ...Args>
+  class CClass {};
+  // template template parameter pack
+*/
+
+/*
+  template <typename ...Args>
+  void func(Args... args){}
+
+  // compiler will generate a function like this
+  template <typename T1, typename T2, typename T3>
+  void func(T1 arg1, T2 arg2, T3 arg3){}
+*/
+
+/*
+  // parameter pack can be empty [0 - N]
+
+  template <typename ...Args>
+  void func(Args... args)
+  {
+    constexpr auto sz_1 = sizeof...(Args);
+    constexpr auto sz_2 = sizeof...(args);
+
+    std::cout << "sz_1 = " << sz_1 << '\n';
+    std::cout << "sz_2 = " << sz_2 << '\n';
+
+    // sz1 and sz2 are constants which are equal to the number of
+    // template type parameter inside the parameter pack.
+  }
+
+  int main()
+  {
+    func(1, 2, 3.4);
+    // output -> 
+    //  sz_1 = 3
+    //  sz_2 = 3
+
+    func(1, 2, 3, 4);
+    // output ->
+    //  sz_1 = 4
+    //  sz_2 = 4
+
+    func();
+    // output ->
+    //  sz_1 = 0
+    //  sz_2 = 0
+  }
+*/
+
+/*
+  template <typename T, typename ...Args>
+  void func(int, Args... args) {}
+*/
+
+/*
+  - compile time recursivity
+  - compile time recursivity using static if(if constexpr)
+  - initializer_list technique
+  - fold expressions
+*/
+
+/*
+  // compile time recursivity (eksiltme tekniği)
+
+  template <typename T>
+  void print(const T& ref)
+  {
+    std::cout << ref << ' ';
+  }
+
+  template <typename T, typename ...Ts>
+  void print(const T& ref, const Ts&... args)
+  {
+    print(ref);
+    print(args...);
+  }
+
+  int main()
+  {
+    int ival = 11;
+    double dval = 22.44;
+
+    print(ival, dval, 9L, "hello world");
+    // output -> 11 22.44 9 hello world
+*/
+
+/*
+  template <typename T>
+  void print(const T& ref)
+  {
+    std::cout << ref << '\n';
+  }
+
+  template <typename T, typename ...Ts>
+  void print(const T& ref, const Ts&... args)
+  {
+    std::cout << "[0] - print started\n";
+
+    print(ref);
+
+    std::cout << "[1] - print continues\n";
+
+    print(args...);
+
+    std::cout << "[2] - print finished\n";
+  }
+
+  int main()
+  {
+    int ival = 11;
+    double dval = 22.44;
+
+    print(ival, dval, 9L, "hello world");
+    // output -> 
+    //  [0] - print started   --> print(ival, dval, 9L, "hello world")
+    //  11
+    //  [1] - print continues
+    //  [0] - print started   --> print(dval, 9L, "hello world")
+    //  22.44
+    //  [1] - print continues
+    //  [0] - print started   --> print(9L, "hello world")
+    //  9
+    //  [1] - print continues 
+    //  hello world           --> print("hello world") [base case]
+    //  [2] - print finished
+    //  [2] - print finished
+    //  [2] - print finished
+  }
+*/
+
+/*
+  // initializer_list technique
+
+  #include <initializer_list>
+
+  template <typename ...Args>
+  void Print(const Args&... args)
+  {
+    (void)std::initializer_list<int>{ (std::cout << args << ' ', 0)... };
+  }
+
+  // comma operator generates a sequence point.
+  // left to right evaluation order.
+  // comma operators generated value is the value of the right operand.
+
+  int main()
+  {
+    Print(11, 22.44, 9L, "hello world");
+    // output -> 11 22.44 9 hello world
+  }
+*/
+
+/*
+  template <typename ...Args>
+  auto sum_1(const Args... args)
+  {
+    return (args + ...);
+  }
+
+  auto sum_2(const auto... args)
+  {
+    return (args + ...);
+  }
+*/
+
+/*
+                        ------------------
+                        | pack expansion |
+                        ------------------
+*/
+
+/*
+  template <typename ...Args>
+  void func(Args... args)
+  {
+    foo(args...);
+    // foo(p1, p2, p3);
+  }
+*/
+
+/*
+  #include <tuple>
+
+  template <typename ...Args>
+  class Myclass{
+    std::tuple<Args...> m_tx;
+  };
+
+  int main()
+  {
+    Myclass<int, int, int> m1;
+    // m_tx data members type is std::tuple<int, int, int>
+  }
+*/
+
+/*
+  template <typename ...Args>
+  class Myclass {
+  public:
+    static constexpr std::size_t size = sizeof...(Args);
+  };
+
+  int main()
+  {
+    constexpr size_t sz1 = Myclass<int, long, double>::size;  
+    // sz1 -> 3u
+
+    constexpr size_t sz2 = Myclass<int, int, int, int>::size;
+    // sz2 -> 4u
+  }
+*/
+
+/*
+  #include <array>
+
+  template <typename ...Args>
+  auto create_array(Args... args)
+  {
+    return std::array<std::size_t, sizeof...(Args)>{ sizeof(Args)... };
+
+    // sizeof...(Args) -> sizeof operator
+    // sizeof(Args)... -> pack expansion
+  }
+
+  struct Mystruct{
+    int buffer[10];
+  };
+
+  int main()
+  {
+    auto arr = create_array(3, 4.5, Mystruct{});
+    // "arr"'s type is std::array<std::size_t, 3u>
+
+    for (const auto& val : arr)
+      std::cout << val << ' ';
+    // output -> 4 8 40
+    // 4(sizeof(int)), 8(sizeof(double)), 40(sizeof(Mystuct))
+  }
+*/
+
+/*
+  template <typename ...Ts>
+  void func(Ts... args)
+  {
+    foo(args...);         // foo(p1, p2, p3)
+    foo(++args...);       // foo(++p1, ++p2, ++p3)
+    foo(&args...);        // foo(&p1, &p2, &p3)
+    foo(sizeof(args)...); // foo(sizeof(p1), sizeof(p2), sizeof(p3))
+  }
+*/
+
+/*
+  template <typename ...Ts>
+  void foo(Ts... args)
+  {
+  }
+
+  template <typename ...Ts>
+  void func(Ts... args)
+  {
+    foo(&args...);  // foo(&p1, &p2, &p3)
+  }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    func(12, 45, 67);
+    // foo<int*, int*, int*> specialization will be called
+
+    // ------------------------------------------------
+    
+    int x{}, int y{};
+    func(&x, &y);
+    // foo<int**, int**> specialization will be called
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  int bar(int x) 
+  { 
+    std::cout << "bar(" << x << ")\n";
+    return x;
+  }
+
+  template <typename ...Ts>
+  void foo(Ts... args){}
+
+  template <typename ...Ts>
+  void func(Ts... args)
+  {
+    foo(bar(args)...);  // foo(bar(p1), bar(p2), bar(p3))
+  }
+
+
+  int main()
+  {
+    func(12, 45, 67, 33);
+    // output ->
+    //  bar(33)
+    //  bar(67)
+    //  bar(45)
+    //  bar(12)
+  }
+*/
+
+/*
+  int bar(int x) 
+  { 
+    std::cout << "bar(" << x << ")\n";
+    return x;
+  }
+
+  template <typename ...Ts>
+  void foo(Ts... args){}
+
+  template <typename ...Ts>
+  void func(Ts... args)
+  {
+    foo(bar(args * args)...);  
+    // foo(bar(p1 * p1), bar(p2 * p2), bar(p3 * p3))
+  }
+
+  int main()
+  {
+    func(2, 5, 7, 9);
+    // output ->
+    //  bar(81)
+    //  bar(49)
+    //  bar(25)
+    //  bar(4)
+  }
+*/
+
+/*
+  template <typename ...Ts>
+  class Base {
+  public:
+    Base()
+    {
+      std::cout << typeid(Base).name() << '\n';
+    }
+  };
+
+  template <typename ...Ts>
+  class Der : public Base<Ts...> {
+  public:
+    Der()
+    {
+      std::cout << typeid(Der).name() << '\n';
+    }
+  };
+
+  template <typename ...Ts>
+  class Der_2 : public Base<Ts*...> {
+  public:
+    Der_2()
+    {
+      std::cout << typeid(Der_2).name() << '\n';
+    }
+  };
+
+  int main()
+  {
+    Der<int, double, long> d1;
+    // output ->
+    // class Base<int, double, long>
+    // class Der<int, double, long>
+
+    Der_2<long, double, int> d2;
+    // output ->
+    // class Base<long*, double*, int*>
+    // class Der_2<long, double, int>
+  }
+*/
+
+/*
+  struct AStruct {
+    AStruct(){}
+    void func_A(){}
+  };
+
+  struct BStruct {
+    BStruct(){}
+    void func_B(){}
+  };
+
+  struct CStruct {
+    CStruct(){}
+    void func_C(){}
+  };
+
+  template <typename ...Ts>
+  class Myclass : public Ts... {};
+  // class Myclass : public AStruct, public BStruct, public CStruct
+
+  int main()
+  {
+    Myclass<AStruct, BStruct, CStruct> m1;
+
+    m1.func_A();    // VALID
+    m1.func_B();    // VALID
+    m1.func_C();    // VALID
+  }
+*/
+
+/*
+  struct AStruct {
+    AStruct(int val)
+    {
+      std::cout << "AStruct(int val), val = " << val << '\n';
+    }
+  };
+
+  struct BStruct {
+    BStruct(int val)
+    {
+      std::cout << "BStruct(int val), val = " << val << '\n';
+    }
+  };
+
+  struct CStruct {
+    CStruct(int val)
+    {
+      std::cout << "CStruct(int val), val = " << val << '\n';
+    }
+  };
+
+  template <typename ...Ts>
+  class Myclass : public Ts... {
+  public:
+    Myclass() : Ts{ 44 }... {}
+  };
+
+  int main()
+  {
+    Myclass<AStruct, BStruct, CStruct> m1;
+    // output ->
+    //  AStruct(int val), val = 44
+    //  BStruct(int val), val = 44
+    //  CStruct(int val), val = 44
+  }
+*/
+
+/*
+  #include <tuple>
+
+  // 2 template type parameter, 1 template parameter pack
+  template <typename A, typename B, typename ...Args>
+  void func_1(A p1, B p2, Args... pack)
+  {
+    std::tuple<A, B, Args...> tx;
+    std::cout << typeid(tx).name() << '\n';
+  }
+
+  // 2 template type parameter, 1 template parameter pack
+  template <typename A, typename B, typename ...Args>
+  void func_2(A p1, B p2, Args... pack)
+  {
+    std::tuple<Args..., A, B> tx;
+    std::cout << typeid(tx).name() << '\n';
+  }
+
+  // 2 template type parameter, 1 template parameter pack
+  template <typename A, typename B, typename ...Args>
+  void func_3(A p1, B p2, Args... pack)
+  {
+    std::tuple<A, Args..., B> tx;
+    std::cout << typeid(tx).name() << '\n';
+  }
+
+  int main()
+  {
+    func_1(2, 3.4, 'A', 14, 15.5f);
+    // output -> class std::tuple<int, double, char, int, float>
+
+    func_2(2, 3.4, 'A', 14, 15.5f);
+    // output -> class std::tuple<char, int, float, int, double>
+
+    func_3(2, 3.4, 'A', 14, 15.5f);
+    // output -> class std::tuple<int, char, int, float, double>
+  }
+*/
+
+/*
+                    ----------------------------
+                    | fold expressions (C++17) |
+                    ----------------------------
+*/
