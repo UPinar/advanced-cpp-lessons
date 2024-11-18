@@ -4006,6 +4006,91 @@
 */
 
 /*
+  #include <functional>  // std::hash
+  #include <string>
+
+  int main()
+  {
+    std::cout << std::hash<int>{}(56) << '\n';
+    // output -> 56
+
+    std::cout << std::hash<double>{}(3.14) << '\n';
+    // output -> 5464867211497793177
+
+    std::string str{ "hello world" };
+    std::cout << std::hash<std::string>{}(str) << '\n';
+    // output -> 5577293430985752569
+  }
+*/
+
+/*
+  #include <string>
+  #include <functional>  // std::hash
+
+  struct Mystruct {
+    int m_ival;
+    double m_dval;
+    std::string m_str;
+  };
+
+  // ---- First Way ----
+  // explicit specialization
+  template <>
+  struct std::hash<Mystruct> {
+    std::size_t operator()(const Mystruct& m)
+    {
+      std::hash<int>{}(m.m_ival)        +  
+      std::hash<double>{}(m.m_dval)     +
+      std::hash<std::string>{}(m.m_str);
+    }
+  };
+
+  // ---- Second Way ----
+  struct Mystruct_hasher {
+    std::size_t operator()(const Mystruct& m)
+    {
+      std::hash<int>{}(m.m_ival)        +  
+      std::hash<double>{}(m.m_dval)     +
+      std::hash<std::string>{}(m.m_str);
+    }
+  };
+*/
+
+/*
+  template <typename T>
+  void hash_combine(std::size_t& seed, const T& val)
+  {
+    seed ^= std::hash<T>{}(val) + 
+            0x9e3779b9          + 
+            (seed << 6)         + 
+            (seed >> 2);
+  }
+
+  template <typename T>
+  std::size_t hash_val(std::size_t& seed, const T& val)
+  {
+    hash_combine(seed, val);
+  }
+
+  template <typename T, typename ...Ts>
+  inline void hash_val( std::size_t& seed, 
+                        const T& val, 
+                        const Ts&... args)
+  {
+    hashCombine(seed, val);
+    hash_val(seed, args...);
+  }
+
+  template <typename ...Ts>
+  inline std::size_t hash_val(const Ts&... args)
+  {
+    std::size_t seed = 0;
+    hash_val(seed, args...);
+    return seed;
+  }
+*/
+
+/*
                   ----------------------------
                   | fold expressions (C++17) |
                   ----------------------------
@@ -4060,6 +4145,12 @@
     (arg1 + (arg2 + (arg3 + 0)))
 
   ------------------------------------------------
+*/
+
+/*
+                        --------------
+                        | unary fold |
+                        --------------
 */
 
 /*
@@ -4599,71 +4690,1209 @@
 */
 
 /*
-  #include <functional>  // std::hash
-  #include <string>
+  #include <concepts> // std::same_as
+
+  template <typename T, std::same_as<T> ...Ts>
+  constexpr auto func_min(const T& a, const T& b, const Ts&... ts)
+  {
+    auto m = a < b ? a : b;
+
+    if constexpr (sizeof...(ts) > 0)
+    {
+      auto cmp = [&](const auto& value){
+        if (value < m)
+          m = value;
+      };
+
+      (... , cmp(ts));    // unary left fold
+    }
+
+    return m;
+  }
 
   int main()
   {
-    std::cout << std::hash<int>{}(56) << '\n';
-    // output -> 56
-
-    std::cout << std::hash<double>{}(3.14) << '\n';
-    // output -> 5464867211497793177
-
-    std::string str{ "hello world" };
-    std::cout << std::hash<std::string>{}(str) << '\n';
-    // output -> 5577293430985752569
+    constexpr auto val = func_min(10, 5, 12, 9, 4, 5); // val -> 4
   }
 */
 
 /*
+                        ---------------
+                        | binary fold |
+                        ---------------
+*/
+
+/*
+  #include <utility>  // std::forward
   #include <string>
-  #include <functional>  // std::hash
+  #include <bitset>
 
-  struct Mystruct {
-    int m_ival;
-    double m_dval;
-    std::string m_str;
-  };
+  template <typename ...Args>
+  void func_print(Args&&... args)
+  {
+    (std::cout << ... << std::forward<Args>(args)) << '\n';
+    // binary left fold
+  }
 
-  // ---- First Way ----
-  // explicit specialization
-  template <>
-  struct std::hash<Mystruct> {
-    std::size_t operator()(const Mystruct& m)
-    {
-      std::hash<int>{}(m.m_ival)        +  
-      std::hash<double>{}(m.m_dval)     +
-      std::hash<std::string>{}(m.m_str);
-    }
-  };
+  int main()
+  {
+    std::string str{"hello world"};
 
-  // ---- Second Way ----
-  struct Mystruct_hasher {
-    std::size_t operator()(const Mystruct& m)
-    {
-      std::hash<int>{}(m.m_ival)        +  
-      std::hash<double>{}(m.m_dval)     +
-      std::hash<std::string>{}(m.m_str);
-    }
-  };
+    func_print(121, str, std::bitset<8>(255u));
+    // output -> 121hello world11111111
+  }
 */
 
 /*
-  template <typename T>
-  void hashCombine(std::size_t& seed, const T& val)
+  #include <concepts> // std::same_as
+
+  template <std::same_as<int> ...Args>
+  constexpr int func_subtract_left(int val, Args&&... args)
   {
-    seed ^= std::hash<T>{}(val) + 
-            0x9e3779b9          + 
-            (seed << 6)         + 
-            (seed >> 2);
+    return (val - ... - args); // binary left fold
+    // (((val - p1) - p2) - p3)
   }
+
+  template <std::same_as<int> ...Args>
+  constexpr int func_subtract_right(int val, Args&&... args)
+  {
+    return (args - ... - val); // binary right fold
+    // (p1 - (p2 - (p3 - val)))
+  }
+
+  int main()
+  {
+    constexpr auto val = func_subtract_left(100, 10, 20, 30, 33);
+    // val -> 7
+    // (((100 - 10) - 20) - 30) - 33
+
+    constexpr auto val2 = func_subtract_right(100, 10, 20, 30, 33);
+    // val2 -> 87
+    // 10 - (20 - (30 - (33 - 100)))
+  }
+*/
+
+/*
+  template <typename ...Args>
+  constexpr auto sum(Args&&... args)
+  {
+    return (0 + ... + std::forward<Args>(args));  
+    // binary left fold
+  }
+
+  int main()
+  {
+    constexpr auto x1 = sum(1, 2);  // x1 -> 3
+    // ((0 + 1) + 2)
+
+    constexpr auto x2 = sum(1);     // x2 -> 1
+    // (0 + 1)
+
+    constexpr auto x3 = sum();      // x3 -> 0
+    // 0
+  }
+*/
+
+/*
+  template <typename T, typename ...Args>
+  constexpr auto sum(const T& init, Args&&... args)
+  {
+    return (init + ... + std::forward<Args>(args));
+    // binary left fold
+  }
+
+  int main()
+  {
+      constexpr auto x1 = sum(1, 2);  // x1 -> 3
+      // ((0 + 1) + 2)
+
+      constexpr auto x2 = sum(1);     // x2 -> 1
+      // (0 + 1)
+
+      constexpr auto x3 = sum();  // syntax error
+      // error: no matching function for call to 'sum()'
+      // note:   candidate expects at least 1 argument, 0 provided
+  }
+*/
+
+/*
+  #include <concepts> // std::same_as
+  #include <utility>  // std::forward
+
+  template <typename T>
+  constexpr auto sum(const T& init, std::same_as<T>auto&&... args)
+  {
+    return (init + ... + std::forward<T>(args));
+  }
+
+  int main()
+  {
+    constexpr auto x1 = sum(1, 2);  // x1 -> 3
+    // ((0 + 1) + 2)
+
+    constexpr auto x2 = sum(1);     // x2 -> 1
+    // (0 + 1)
+
+    constexpr auto x3 = sum();  // syntax error
+    // error: no matching function for call to 'sum()'
+    // note:   candidate expects at least 1 argument, 0 provided
+  }
+*/
+
+/*
+  constexpr auto func_sum1(auto... args)
+  {
+    return (... + args);  
+    // unary left fold
+  }
+
+  constexpr auto func_sum2(auto... args)
+  {
+    return (0 + ... + args);  
+    // binary left fold
+  }
+
+  int main()
+  {
+    constexpr auto x1 = func_sum1();  // syntax error
+    // error: fold of empty expansion over operator+
+
+    constexpr auto x2 = func_sum2();  // VALID
+  }
+*/
+
+/*
+                ---------------------------
+                | fold expressions idioms |
+                ---------------------------
+*/
+
+/*
+  // Jonathan Müller
+  // parametre paketindeki ilk argümanı elde etmek.
+
+  #include <type_traits>  // std::common_type
 
   template <typename ...Ts>
-  std::size_t combinedHashValue(const Ts&... args)
+  constexpr auto get_first_element(Ts... args)
   {
-    std::size_t seed = 0; // initial seed
-    (... , hashCombine(seed, args));
-    return seed;
+    std::common_type_t<decltype(args)...> result;
+    ((result = args, true) || ...); // unary right fold
+
+    // ((result = arg1, true)) || ((result = arg2, true)) || ...  
+    
+
+    // "((result = arg1, true))", in this expression
+    // "arg1" will be assign to "result", then because of comma operator 
+    // is creating a sequence point and its value is the 
+    // right operands value, expression's value will become true.
+    // and because of the || logical OR operator,
+    // short-circuit will end the evaluation
+    // and result will be the first element in the parameter pack.
+
+    return result;
+  }
+
+  int main()
+  {
+    using namespace std::literals;
+
+    constexpr auto first_elem = get_first_element(11, 3.145);
+    // first_elem -> 11.0
+    
+    constexpr auto first_elem2 = get_first_element(3.14, 55);
+    // first_elem2 -> 3.14
+  }
+*/
+
+/*
+  // Jonathan Müller
+  // parametre paketindeki son argümanı elde etmek.
+
+  template <typename ...Ts>
+  constexpr auto get_last_element(Ts... args)
+  {
+    return (args, ...);
+  }
+
+  int main()
+  {
+    using namespace std::literals;
+
+    constexpr auto last_elem = get_last_element(11, 3.145, "hello");
+    // last_elem -> "hello"(const char*)
+
+    constexpr auto last_elem2 = get_last_element("world", 3.14, 55);
+    // last_elem2 -> 55
+  }
+*/
+
+/*
+  // parametre paketindeki bütün argümanları bir fonksiyona göndermek.
+
+  void func(int x)
+  {
+    std::cout << "func(int x), x = " << x << '\n';
+  }
+
+  void foo(auto... args)
+  {
+    (func(args), ...);
+  }
+
+  int main()
+  {
+    foo(1, 2, 3, 4, 5);
+    // output -> 
+    //  func(int x), x = 1
+    //  func(int x), x = 2
+    //  func(int x), x = 3
+    //  func(int x), x = 4
+    //  func(int x), x = 5
+  }
+*/
+
+/*
+  // Jonathan Müller
+  // parametre paketindeki argümanları tersten sırayla 
+  // bir fonksiyona göndermek.
+
+  void func(int x)
+  {
+    std::cout << "func(int x), x = " << x << '\n';
+  }
+
+  void foo(auto... args)
+  {
+    int dummy;
+
+    (dummy = ... = (func(args), 0)); 
+    // binary left fold
+    // (((dummy = (func(p1), 0)) = (func(p2), 0)) = (func(p3), 0))
+    // assignment operator('=') is a right associative operator
+  }
+
+  int main()
+  {
+    foo(1, 2, 3, 4, 5);
+    // output -> 
+    //  func(int x), x = 5
+    //  func(int x), x = 4
+    //  func(int x), x = 3
+    //  func(int x), x = 2
+    //  func(int x), x = 1
+  }
+*/
+
+/*
+  // Jonathan Müller
+  constexpr bool pred(int x)
+  {
+    return x % 3 == 0;
+  }
+
+  constexpr std::size_t pred_count(auto... args)
+  {
+    // return (std::size_t{} + ... + (pred(args) ? 1 : 0));
+    return (std::size_t{} + ... + (static_cast<int>(pred(args)));
+  }
+
+  int main()
+  {
+    constexpr auto N = pred_count(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    // N -> 3
+  }
+*/
+
+/*
+  // Jonathan Müller
+  constexpr auto fold_min(auto... args)
+  {
+    auto min = (args, ...);
+
+    ((args < min ? min = args : 0), ...); 
+
+    return min;
+  }
+
+  int main()
+  {
+    constexpr auto val = fold_min(3, 2, 7, 6, 11, 1, -2, 8);
+    // val -> -2
+  }
+*/
+
+/*
+  // David Mazières (C++20 idioms for parameter packs)
+
+  #include <tuple>    // std::apply
+  #include <string>
+
+  template <class ...Ts>
+  struct multilambda : Ts... {
+    using Ts::operator()...;
+    // constexpr multilambda(Ts... ts) : Ts(std::move(ts))... {}
+  };
+
+  int main()
+  {
+    using namespace std;
+    using namespace std::literals;
+
+    constexpr multilambda action{
+      [](int i){ cout << "int: " << i << '\n'; },
+      [](double d){ cout << "double: " << d << '\n'; },
+      [](bool b){ cout << (b ? "true" : "false") << '\n'; },
+      [](string str){ cout << "string: " << str << '\n'; },
+    };  // CTAD
+
+    action(12);     // output -> int: 12
+    action(3.14);   // output -> double: 3.14
+
+    tuple tx(11, true, "hello"s, 3.14);
+
+    std::apply([action](auto... args){ (action(args), ...); }, tx);
+
+    // [action](auto... args){ (action(args), ...); } is callable
+
+    // output ->
+    //  int: 11
+    //  true
+    //  string: hello
+    //  double: 3.14
+  }
+*/
+
+/*
+  // std::integer_sequence class template (C++14)
+
+  #include <utility>  // std::integer_sequence
+
+  template <typename T, T ...Vals>
+  struct Integer_Sequence {
+    static constexpr std::size_t size = sizeof...(Vals);
+    using value_type = T;
+  };
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    std::integer_sequence<int, 1, 3, 5, 7> seq1;
+    // std::integer_sequence<int, 1, 3, 5, 7> is a type.
+    std::integer_sequence<long, 1, 2, 4> seq2;
+    // std::integer_sequence<long, 1, 2, 4> is a type.
+
+    // ------------------------------------------------
+
+    std::integer_sequence<int, 1, 3, 5, 7>::size;
+    std::integer_sequence<int, 1, 3, 5, 7>::value_type;
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <utility>  // std::integer_sequence, std::index_sequence
+
+  template <typename T, T ...Vals >
+  void print_sequence(std::integer_sequence<T, Vals...> seq)
+  {
+    std::cout << "size of the sequence = " << seq.size() << '\n';
+    ((std::cout << Vals << ' '), ...);  // unary left fold
+    std::cout << '\n';
+  }
+
+  template <std::size_t ...Vals>
+  using Index_Sequence = std::integer_sequence<std::size_t, Vals...>;
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    print_sequence(std::integer_sequence<int, 1, 2, 3, 4, 5>());
+    // output -> 
+    //  size of the sequence = 5
+    //  1 2 3 4 5
+
+    print_sequence(std::integer_sequence<char, 'A', 'B', 'C'>());
+    // output ->
+    //  size of the sequence = 3
+    //  A B C
+
+    print_sequence(std::integer_sequence<std::size_t, 3, 5, 6>());
+    // output -> 
+    //  size of the sequence = 3
+    //  3 5 6
+
+    // ------------------------------------------------
+
+    print_sequence(Index_Sequence<1, 2, 3, 4, 5>{});
+    // output ->
+    //  size of the sequence = 5
+    //  1 2 3 4 5
+
+    print_sequence(std::index_sequence<10, 20, 30, 40, 50>{});
+    // output ->
+    //  size of the sequence = 5
+    //  10 20 30 40 50
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  // std::make_integer_sequence is a type alias 
+  // NOT a class template
+
+  #include <utility>      // std::make_integer_sequence
+  #include <type_traits>  // std::is_same
+
+  int main()
+  {
+    using namespace std;
+
+    int N = 3;
+    static_assert(is_same_v<make_integer_sequence<int, 3>, 
+                            integer_sequence<int, 0, 1, 2>>);
+  }
+*/
+
+/*
+  // std::make_index_sequence is a type alias 
+  // NOT a class template
+
+  #include <utility>      // std::make_index_sequence
+  #include <type_traits>  // std::is_same
+
+  int main()
+  {
+    using namespace std;
+
+    int N = 3;
+    static_assert(is_same_v<make_index_sequence<3>, 
+                            integer_sequence<size_t, 0, 1, 2>>);
+    // first parameter variable is std::size_t     
+  }
+*/
+
+/*
+  #include <utility>  // std::make_integer_sequence
+
+  template <typename T, T ...Vals >
+  void print_sequence(std::integer_sequence<T, Vals...> seq)
+  {
+    std::cout << "size of the sequence = " << seq.size() << '\n';
+    ((std::cout << Vals << ' '), ...);  // unary left fold
+    std::cout << '\n';
+  }
+
+  constexpr int N = 10;
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    print_sequence(std::make_integer_sequence<int, N>());
+    // output ->
+    //  size of the sequence = 10
+    //  0 1 2 3 4 5 6 7 8 9
+
+    // ------------------------------------------------
+
+    print_sequence(std::make_integer_sequence<std::size_t, N>{});
+    // output ->
+    //  size of the sequence = 10
+    //  0 1 2 3 4 5 6 7 8 9
+
+    // ------------------------------------------------
+
+    print_sequence(std::make_index_sequence<N>{});
+    // output ->
+    //  size of the sequence = 10
+    //  0 1 2 3 4 5 6 7 8 9
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <utility>  // std::index_sequence_for
+
+  template <typename T, T ...Vals >
+  void print_sequence(std::integer_sequence<T, Vals...> seq)
+  {
+    std::cout << "size of the sequence = " << seq.size() << '\n';
+    ((std::cout << Vals << ' '), ...);  // unary left fold
+    std::cout << '\n';
+  }
+
+  int main()
+  {
+    using namespace std;
+
+    print_sequence(index_sequence_for<int, double, long>{});
+    // std::make_index_sequence<3> 
+    // output ->
+    //  size of the sequence = 3
+    //  0 1 2
+  }
+*/
+
+/*
+  // cppreference
+
+  #include <tuple>  
+  #include <utility>  
+  // std::index_sequence, std::index_sequence_for
+
+  template <class Tuple, std::size_t... Idxs>
+  void print_tuple_impl(std::ostream& os, 
+                        const Tuple& t, 
+                        std::index_sequence<Idxs...>)
+  {
+    ((os << (Idxs == 0 ? "" : ", ") << std::get<Idxs>(t)), ...);
+  }
+
+  template <class... Args>
+  auto& operator<<( std::ostream& os, 
+                    const std::tuple<Args...>& t)
+  {
+    os << "(";
+    print_tuple_impl(os, t, std::index_sequence_for<Args...>{});
+    // sending index's of the parameter pack
+    return os << ")";
+  }
+
+  int main()
+  {
+    using namespace std;
+
+    tuple<int, double, string> tp{ 11, 3.14, "hello"s };
+
+    cout << tp << '\n';
+    // output -> (11, 3.14, hello)
+
+    cout << make_tuple(1, 2.14, 3.11, "world"s, 5) << '\n';
+    // output -> (1, 2.14, 3.11, world, 5)
+  }
+*/
+
+/*
+  #include <array>
+  #include <tuple>  
+  #include <utility>  
+  // std::index_sequence, std::index_sequence_for,
+  // std::make_index_sequence
+  #include <type_traits>  // std::is_same
+
+  template <class Tuple, std::size_t... Idxs>
+  void print_tuple_impl(std::ostream& os, 
+                        const Tuple& t, 
+                        std::index_sequence<Idxs...>)
+  {
+    ((os << (Idxs == 0 ? "" : ", ") << std::get<Idxs>(t)), ...);
+  }
+
+  template <class... Args>
+  auto& operator<<( std::ostream& os, 
+                    const std::tuple<Args...>& t)
+  {
+    os << "(";
+    print_tuple_impl(os, t, std::index_sequence_for<Args...>{});
+    return os << ")";
+  }
+
+  template <typename Array, std::size_t... Idxs>
+  auto arr_to_tuple_impl(const Array& arr, 
+                         std::index_sequence<Idxs...>)
+  {
+    return std::make_tuple(arr[Idxs]...);
+  }
+
+  template <typename T, 
+            std::size_t N, 
+            typename Indices = std::make_index_sequence<N>>
+  auto arr_to_tuple(const std::array<T, N>& arr)
+  {
+    return arr_to_tuple_impl(arr, Indices{});
+  }
+
+  int main()
+  {
+    std::array<int, 4> iarr{ 11, 22, 33, 44 };
+
+    auto tx = arr_to_tuple(iarr);
+    static_assert(std::is_same_v<
+                    decltype(tx), std::tuple<int, int, int, int>>);
+
+    std::cout << tx << '\n';
+    // output -> (11, 22, 33, 44)
+  }
+*/
+
+/*
+  #include <tuple>    // std::tuple_size
+  #include <utility>  // std::make_index_sequence
+
+  template <typename ...Ts>
+  void func(Ts&&... args)
+  {
+    // code here...
+  }
+
+  template <typename Tuple, std::size_t... Idxs>
+  void process_impl(const Tuple& tp, std::index_sequence<Idxs...>)
+  {
+    func(std::get<Idxs>(tp)...);
+  }
+
+  template <typename Tuple>
+  void process(const Tuple& tp)
+  {
+    using namespace std;
+
+    process_impl( tp, make_index_sequence<tuple_size_v<Tuple>>{});
+  }
+*/
+
+/*
+  #include <tuple>  // std::decay, std::tuple_size, std::get
+  #include <utility>  
+  // std::forward, std::make_index_sequence
+
+  namespace detail {
+    template <class Fn, class Tuple, std::size_t... Idxs>
+    decltype(auto) Apply_impl(Fn&& fn, 
+                              Tuple&& t, 
+                              std::index_sequence<Idxs...>)
+    {
+      using namespace std;
+
+      return forward<Fn>(fn)(get<Idxs>(forward<Tuple>(t))...);
+    }
+  }
+
+  template <class Fn, class Tuple>
+  decltype(auto) Apply(Fn&& fn, Tuple&& t)
+  {
+    using namespace std;
+
+    return detail::Apply_impl( 
+      std::forward<Fn>(fn), 
+      std::forward<Tuple>(t), 
+      make_index_sequence<tuple_size_v<decay_t<Tuple>>>{});
+  }
+
+  // for function's return value's value category to be  
+  // remain same `decltype(auto)` is used.
+
+  int func(int x, char c, double d)
+  {
+    std::cout << "x = " << x 
+              << ", c = " << c 
+              << ", d = " << d << '\n';
+    return 1;            
+  }
+
+  int main()
+  {
+    auto tp = std::make_tuple(11, 'A', 3.14);
+
+    int ret = Apply(func, tp);
+    // output -> x = 11, c = A, d = 3.14
+  }
+*/
+
+/*
+  #include <utility>  // std::index_sequence
+  #include <array>
+  #include <string>
+
+  namespace detail {
+    template <typename T, std::size_t... Is>
+    auto Make_Array_Impl(const T& val, std::index_sequence<Is...>)
+    {
+      return std::array<T, sizeof...(Is)>{ (Is, val)... };
+      // {(0, "hello"), (1, "hello"), ... (N-1, "hello") }
+    }
+  }
+
+  template <int N, typename T>
+  std::array<T, N> Make_Array(const T& val)
+  {
+    return detail::Make_Array_Impl(val, std::make_index_sequence<N>());
+  }
+
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    int i_arr[5] = { (0, 3), (1, 3), (2, 3), (3, 3), (4, 3) };
+
+    for (const auto& elem : i_arr)
+      std::cout << elem << ' ';
+    // output -> 3 3 3 3 3
+
+    // ------------------------------------------------
+  
+    auto str_arr = Make_Array<5>(std::string("hello"));
+
+    for (const auto& elem : str_arr)
+      std::cout << elem << ' '; 
+    // output -> hello hello hello hello hello
+
+    std::cout << '\n';
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_same
+  #include <tuple>        // std::make_tuple, std::get
+  #include <utility>      // std::index_sequence
+
+  template <typename Tuple, std::size_t... Idxs>
+  decltype(auto) Tuple_Subset(const Tuple& tp, 
+                              std::index_sequence<Idxs...>)
+  {
+    return std::make_tuple(std::get<Idxs>(tp)...);
+  }
+
+  int main()
+  {
+    std::tuple tp1(11, 3.14, "hello", true, 'A');
+    auto tp2 = Tuple_Subset(tp1, std::index_sequence<1, 3, 4>{});
+
+    static_assert(std::is_same_v<decltype(tp2), 
+                                std::tuple<double, bool, char>>);
+    // VALID
+
+    std::cout << std::get<0>(tp2) << ' ' 
+              << std::get<1>(tp2) << ' ' 
+              << std::get<2>(tp2) << '\n';
+    // output -> 3.14 1 A
+  }
+*/
+
+/*
+                    ---------------------
+                    | static if (C++17) |
+                    ---------------------
+*/
+
+/*
+  if constexpr (`constant expression`) 
+  {
+    // code here...
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_integral
+
+  template <typename T>
+  void func(T tx)
+  {
+    if constexpr (std::is_integral_v<T>){
+      if (tx != 0)
+        func(tx--);
+    }
+    else{
+      undeclared(); // syntax error
+      // error: there are no arguments to 'undeclared' 
+      // that depend on a template parameter, 
+      // so a declaration of 'undeclared' must be available
+    }
+
+  }
+
+  int main()
+  {
+    func(2);
+    // compiler will not generate code for else block
+    // but because of "undeclared" identifier is not dependent
+    // on template parameter, there will be a syntax error.
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_integral
+
+  template <typename T>
+  void func(T tx)
+  {
+    if constexpr (std::is_integral_v<T>){
+      if (tx != 0)
+        func(tx--);
+    }
+    else{
+      tx(4);
+      undeclared(tx);
+    }
+
+  }
+
+  int main()
+  {
+    func(2);  // VALID
+    // compiler will not generate code for else block
+    // so there won't be a syntax error for "undeclared"
+    // identifier because of it is dependent on template parameter.
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_integral
+
+  template <typename T>
+  void func(T tx)
+  {
+    if constexpr (std::is_integral_v<T>){
+      if (tx != 0)
+        func(tx--);
+    }
+    else {
+      tx(4);          // syntax error
+      // error: 'tx' cannot be used as a function
+      
+      undeclared(tx); // syntax error
+      // error: 'undeclared' was not declared in this scope
+    }
+  }
+
+  int main()
+  {
+    func(2.5);
+    // compiler will generate the else block's code 
+    // so both statements will cause a syntax error.
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_integral
+
+  template <typename T>
+  void func(T tx)
+  {
+    if constexpr (std::is_integral_v<T>){
+      if (tx != 0)
+        func(tx--);
+    }
+    else {
+      static_assert(false, "T must be an integral type");
+    }
+  }
+
+  int main()
+  {
+    func(2);    // VALID
+
+    func(2.5);  // syntax error
+    // error: static assertion failed: T must be an integral type
+  }
+*/
+
+/*
+  struct AStruct {};
+
+  int main()
+  {
+    AStruct as;
+
+    if constexpr (sizeof(int) > 4){
+      ++as; // syntax error
+      // error: no match for 'operator++' (operand type is 'AStruct')
+    }
+    else{
+      --as; // syntax error
+      // error: no match for 'operator--' (operand type is 'AStruct')
+    }
+
+    // because of static if is not inside a template 
+    // both branches will be compiled and syntax error will occur.
+  }
+*/
+
+/*
+  struct AStruct {
+    AStruct& operator++() { return *this; }
+  };
+
+  int main()
+  {
+    AStruct as;
+
+    if constexpr (sizeof(int) > 2){
+      ++as;
+    }
+    else{
+      --as; // syntax error
+      // error: no match for 'operator--' (operand type is 'AStruct')
+    }
+
+    // because of static if is not inside a template 
+    // both branches will be compiled and syntax error will occur.
+  }
+*/
+
+/*
+  struct AStruct {
+    AStruct& operator++() { return *this; }
+  };
+
+  template <typename T>
+  void func(T t)
+  {
+    if constexpr (sizeof(int) > 2){
+      ++t;
+    }
+    else{
+      --t;
+    }
+  }
+
+  int main()
+  {
+    func(AStruct{});  // VALID
+
+    // because of if constexpr block is compiled
+    // and there is operator++ for AStruct
+    // there won't be a syntax error.
+  }
+*/
+
+/*
+  struct AStruct {
+    AStruct& operator++() { return *this; }
+  };
+
+  template <typename T>
+  void func(T t)
+  {
+    if constexpr (sizeof(int) > 8){
+      ++t;
+    }
+    else{
+      --t; // ---->
+    }
+  }
+
+  int main()
+  {
+    func(AStruct{});  // syntax error
+    // error: no match for 'operator--' (operand type is 'AStruct')
+
+    // because of else block is compiled
+    // and there is no operator-- for AStruct
+    // there will be a syntax error.
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_integral
+
+  template <typename T>
+  void func(T& tx)
+  {
+    if (tx > 0){  // run-time if
+      if constexpr (std::is_integral_v<T>){ // compile-time if
+        ++tx;
+      }
+      else{
+        --tx;
+      }
+    }
+  }
+
+  int main()
+  {
+    int ival = 11;
+    double dval = 3.14;
+
+    func(ival);
+    func(dval);
+
+    std::cout << "ival = " << ival << '\n';
+    // output -> ival = 12
+    std::cout << "dval = " << dval << '\n';
+    // output -> dval = 2.14
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_void
+
+  constexpr auto func_1()
+  {
+    if constexpr (sizeof(int) > 4u)
+      return 11;
+    else
+      return 3.14;
+  }
+  // compiler written "func_1" have a return type of int 
+  // when sizeof(int) > 4u is true
+  // otherwise return type is double
+
+  auto func_2()
+  {
+    if constexpr (sizeof(int) > 4u)
+      return 11;
+  }
+  // compiler written "func_2" have a return type of int
+  // when sizeof(int) > 4u is true
+  // otherwise return type is void
+
+  int main()
+  {
+    constexpr auto val = func_1();  // val -> 3.14
+    static_assert(std::is_void_v<decltype(func_2())>);  // VALID
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_pointer
+
+  template <typename T>
+  auto get_val(T t)
+  {
+    if constexpr (std::is_pointer_v<T>)
+      return *t;
+    else
+      return t;
+  }
+
+  int main()
+  {
+    int ival{ 88 };
+    double dval{ 3.14 };
+    int* iptr = &ival;
+    double* dptr = &dval;
+
+    std::cout << get_val(ival) << '\n';
+    // output -> 88
+    std::cout << get_val(dval) << '\n';
+    // output -> 3.14
+    std::cout << get_val(iptr) << '\n';
+    // output -> 88
+    std::cout << get_val(dptr) << '\n';
+    // output -> 3.14
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_same
+  #include <string>       // std::to_string
+
+  template <typename T>
+  std::string as_string(T x)
+  {
+    if constexpr (std::is_same_v<T, std::string>)
+      return x;
+    else if constexpr (std::is_arithmetic_v<T>)
+      return std::to_string(x);
+    else
+      return std::string(x);
+  }
+
+  class Myclass {};
+
+  int main()
+  {
+    std::cout << as_string(11) << '\n';
+    // output -> 11
+    std::cout << as_string(3.14) << '\n';
+    // output -> 3.14
+    std::cout << as_string(std::string("hello")) << '\n';
+    // output -> hello
+    std::cout << as_string("world") << '\n';
+    // output -> world
+
+    std::cout << as_string(Myclass{}) << '\n';  // syntax error
+    // error: no matching function for call to 
+    // 'std::__cxx11::basic_string<char>::basic_string(Myclass&)'
+  }
+*/
+
+/*
+  #include <iterator>  
+  // std::random_access_iterator_tag
+  // std::bidirectional_iterator_tag
+  // std::input_iterator_tag
+  // std::iterator_traits
+  #include <vector>
+  #include <list>
+
+  namespace details {
+
+    // implementation for random access iterators
+    template <typename Iter, typename Dist>
+    void Advance_impl(Iter& pos, 
+                      Dist N, 
+                      std::random_access_iterator_tag)
+    {
+      std::cout << "random access iterator\n";
+      pos += N;
+    }
+
+    // implementation for bidirectional iterators
+    template <typename Iter, typename Dist>
+    void Advance_impl(Iter& pos, 
+                      Dist N, 
+                      std::bidirectional_iterator_tag)
+    {
+      std::cout << "bidirectional iterator\n";
+      if (N >= 0)
+        while (N--)
+          ++pos;
+      else
+        while (N++)
+          --pos;
+    }
+
+    // implementation for input iterators
+    template <typename Iter, typename Dist>
+    void Advance_impl(Iter& pos, 
+                      Dist N, 
+                      std::input_iterator_tag)
+    {
+      std::cout << "input iterator\n";
+      while (N--)
+        ++pos;
+    }
+  }
+
+  template <typename Iter, typename Dist>
+  void Advance(Iter& pos, Dist N)
+  {
+    using namespace std;
+
+    using Cat = typename iterator_traits<Iter>::iterator_category;
+    details::Advance_impl(pos, N, Cat{});
+  }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    std::vector<int> ivec{ 1, 2, 3, 4, 5 };
+    auto vec_iter = ivec.begin();
+    Advance(vec_iter, 3);
+    // output -> random access iterator
+    std::cout << *vec_iter << '\n';
+    // output -> 4
+
+    // ------------------------------------------------
+
+    std::list<int> ilist{ 11, 22, 33, 44, 55 };
+    auto list_iter = ilist.begin();
+    Advance(list_iter, 3);
+    // output -> bidirectional iterator
+    std::cout << *list_iter << '\n';
+    // output -> 44
+
+    // ------------------------------------------------
   }
 */
