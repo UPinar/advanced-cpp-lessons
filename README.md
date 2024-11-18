@@ -159,9 +159,9 @@
   - template specializations
     - explicit(full) specialization
     - partial specialization
-  - variadic templates
+  - variadic templates (C++11)
     - pack expansion
-    - fold expressions
+    - fold expressions (C++17)
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax

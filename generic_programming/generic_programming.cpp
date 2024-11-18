@@ -580,7 +580,8 @@
     // output -> true
 
     constexpr bool b1 = Less(arr1, arr2); // syntax error
-    // error: the value of 'arr1' is not usable in a constant expression
+    // error: the value of 'arr1' is not usable 
+    // in a constant expression
 
     constexpr bool b2 = Less(arr2, arr3);
     // b2 -> false
@@ -1050,7 +1051,8 @@
     constexpr Mystruct(double param) : m_val{ param } {}
 
     // hidden friend function
-    friend std::ostream& operator<<(std::ostream& os, const Mystruct& ms)
+    friend std::ostream& operator<<(std::ostream& os, 
+                                    const Mystruct& ms)
     {
       return os << ms.m_val;
     }
@@ -1107,7 +1109,7 @@
     std::list<double> dlist;
 
     func(dlist);
-    // function's parameter is std::list<double, std::allocator<double>>
+    // function's parameter is std::list<double, allocator<double>>
     // T    -> double, 
     // A    -> std::allocator<double>,
     // Con  -> std::list
@@ -1597,7 +1599,7 @@
     // --------------------------------------------------------
 
     vector<int> ivec;
-    // "ivec"'s type is vector<int, std::allocator<int>> specialization
+    // "ivec"'s type is vector<int, allocator<int>> specialization
     // there is a default argument for the 2nd template parameter
 
     // --------------------------------------------------------
@@ -1698,7 +1700,8 @@
 
     std::priority_queue<int> i_pqueue;
     // std::priority_queue is a container adaptor
-    // "i_pqueue"'s type is priority_queue<int, vector<int>, less<int>>
+    // "i_pqueue"'s type is 
+    // priority_queue<int, vector<int>, less<int>>
 
     // --------------------------------------------------------------
   }
@@ -2561,10 +2564,10 @@
     // output -> primary template of Mystruct class template
 
     Mystruct<std::tuple<int, int, int, int>> m2;
-    // output -> Mystruct<std::tuple<T, U, M, N>> partial specialization
+    // output -> Mystruct<tuple<T, U, M, N>> partial specialization
 
     Mystruct<std::tuple<int, double, char, std::string>> m3;
-    // output -> Mystruct<std::tuple<T, U, M, N>> partial specialization
+    // output -> Mystruct<tuple<T, U, M, N>> partial specialization
   }
 */
 
@@ -2625,7 +2628,7 @@
 
     Mystruct<int>::type;
     // "Mystruct<int>::type" is a type alias for "std::false_type"
-    // which is a type alias for "std::integral_constant<bool, false>"
+    // which is a type alias for "integral_constant<bool, false>"
 
     // ------------------------------------------------
 
@@ -3000,12 +3003,14 @@
   template <typename ...Args>
   void Print(const Args&... args)
   {
-    (void)std::initializer_list<int>{ (std::cout << args << ' ', 0)... };
+    using namespace std;
+    (void)initializer_list<int>{ (cout << args << ' ', 0)... };
   }
 
   // comma operator generates a sequence point.
   // left to right evaluation order.
-  // comma operators generated value is the value of the right operand.
+  // comma operators generated value is 
+  // the value of the right operand.
 
   int main()
   {
@@ -3024,6 +3029,50 @@
   auto sum_2(const auto... args)
   {
     return (args + ...);
+  }
+*/
+
+/*
+  // poor mans fold expression 
+
+  #include <initializer_list>
+
+  template <typename ...Ts>
+  void print_1(const Ts&... args)
+  {
+    int arr[] = { ((std::cout << args << ' '), 0)... };
+    // problem is an array is defined but not used.
+  }
+
+  template <typename ...Ts>
+  void print_2(const Ts&... args)
+  {
+    using namespace std;
+
+    (void)initializer_list<int>{ ((cout << args << ' '), 0)... };
+  }
+
+  template <typename ...Ts>
+  void print_3(const Ts&... args)
+  {
+    using extender = int[];
+    (void)extender{ ((std::cout << args << ' '), 0)... };
+  }
+
+  int main()
+  {
+    print_1(11, 22.44, 9L, "hello world");
+    // output -> 11 22.44 9 hello world
+
+    std::cout << '\n';
+
+    print_2(11, 22.44, 9L, "hello world");
+    // output -> 11 22.44 9 hello world
+    
+    std::cout << '\n';
+
+    print_3(11, 22.44, 9L, "hello world");
+    // output -> 11 22.44 9 hello world
   }
 */
 
@@ -3080,7 +3129,9 @@
   template <typename ...Args>
   auto create_array(Args... args)
   {
-    return std::array<std::size_t, sizeof...(Args)>{ sizeof(Args)... };
+    using namespace std;
+
+    return array<size_t, sizeof...(Args)>{ sizeof(Args)... };
 
     // sizeof...(Args) -> sizeof operator
     // sizeof(Args)... -> pack expansion
@@ -3349,7 +3400,1270 @@
 */
 
 /*
-                    ----------------------------
-                    | fold expressions (C++17) |
-                    ----------------------------
+  // pack expansion `...` elipsis tokenından önceki 
+  // en uzun ifadeye uygulanır.
+
+  void print(auto... args)
+  {
+    ((std::cout << args << ' '), ...);
+    std::cout << '\n';
+  }
+
+  auto func_1(auto* x)
+  {
+    return *x * *x + 10;
+  }
+
+  void func_2(auto... args)
+  {
+    print(args ...);              
+    // print(p1, p2, p3)
+
+    print(&args ...);             
+    // print(&p1, &p2, &p3)
+
+    print(10 * args ...);         
+    // print(10 * p1, 10 * p2, 10 * p3)
+
+    print(args * args ...);       
+    // print(p1 * p1, p2 * p2, p3 * p3)
+
+    print(func_1(&args) ...);     
+    // print(func_1(&p1), func_1(&p2), func_1(&p3))
+
+    print(++args ...);
+    // print(++p1, ++p2, ++p3)
+  }
+
+  int main()
+  {
+    int x { 1 }, y { 2 }, z { 3 };
+
+    func_2(x, y, z);
+    // output ->
+    //  1 2 3
+    //  0xe810bffe00 0xe810bffe08 0xe810bffe10
+    //  10 20 30
+    //  1 4 9
+    //  11 14 19
+    //  2 3 4
+  }
+*/
+
+/*
+  template <typename T>
+  T square(T x)
+  {
+    return x * x;
+  }
+
+  template <typename ...Ts>
+  auto sum(Ts... args)
+  {
+    return (... + args);
+  }
+
+  template <typename ...Ts>
+  void call_sum(Ts... args)
+  {
+    // ------------------------------------------------
+
+    auto x1 = sum(args...);
+    // sum(1, 2, 3, 4, 5)
+    std::cout << "x1 = " << x1 << '\n'; 
+    // output -> x1 = 15
+
+    // ------------------------------------------------
+
+    auto x2 = sum(85, args...);
+    // sum(85, 1, 2, 3, 4, 5)
+    std::cout << "x2 = " << x2 << '\n'; 
+    // output -> x2 = 100
+
+    // ------------------------------------------------
+
+    auto x3 = sum(square(args)...);
+    // sum(square(1), square(2), square(3), square(4), square(5))
+    std::cout << "x3 = " << x3 << '\n'; 
+    // output -> x3 = 55
+
+    // ------------------------------------------------
+  }
+
+  int main()
+  {
+    call_sum(1, 2, 3, 4, 5);
+  }
+*/
+
+/*
+  // cppreference parameter pack example 
+
+  template <class... Us>
+  void func_1(Us... args){}
+
+  template <class... Ts>
+  void func_2(Ts... args)
+  {
+    func_1(&args...);
+    // func(&p1, &p2, &p3)
+    // 1st parameter type is int*
+    // 2nd parameter type is double*
+    // 3rd parameter type is const char**
+  }
+
+  int main()
+  {
+    func_2(1, 0.2, "A");
+  }
+*/
+
+/*
+  #include <concepts> // std::integral
+
+  // variadic parameter pack can be constrainted with concepts
+
+  template <std::integral ...Ts>
+  constexpr auto sum(Ts... args)
+  {
+    return (0 + ... + args);
+  }
+
+  template <typename ...Ts>
+  constexpr auto mul(Ts... args)
+  {
+    return (1 * ... * args);
+  }
+
+  template <typename ...Ts>
+  constexpr auto foo(Ts... args)
+  {
+    return mul(sum(args...) + args...);
+    // mul(sum(1, 2, 4) + 1, sum(1, 2, 4) + 2, sum(1, 2, 4) + 4)
+    // mul(8, 9, 11);
+  }
+
+  int main()
+  {
+    constexpr auto result = foo(1, 2, 4); // result -> 792
+  }
+*/
+
+/*
+  #include <utility>      // std::forward, std::move
+  #include <type_traits>  // std::is_lvalue_reference
+
+  template <typename ...Ts>
+  void func_2(Ts&&... args)
+  {
+    int count{};
+
+    ((std::cout << ++count << ". argument = " 
+      << (std::is_lvalue_reference_v<Ts> ? "L value" : "R value")
+      << '\n'), ...);
+  }
+
+  template <typename ...Ts>
+  void func_1(Ts&&... args)
+  {
+    // perfect forwarding parameter pack
+
+    func_2(std::forward<Ts>(args)...);
+    // func_2(std::forward<T1>(p1), 
+    //        std::forward<T2>(p2), std::forward<T3>(p3));
+  }
+
+  int main()
+  {
+    int x{};
+
+    func_1(x, 35, std::move(x), "hello world");
+    // output ->
+    //  1. argument = L value
+    //  2. argument = R value
+    //  3. argument = R value
+    //  4. argument = L value
+  }
+*/
+
+/*
+  #include <vector>
+  #include <string>
+  #include <utility>  // std::forward
+
+  template <typename ...Args>
+  class Myclass {
+  public:
+    Myclass(Args...) {}
+  };
+
+  template <typename ...Ts>
+  void func_2(Ts... args)
+  {
+    Myclass<Ts...> m1;
+    Myclass<Ts...> m2(args...);
+  }
+
+  template <typename ...Ts>
+  void func_1(Ts&&... args)
+  {
+    Myclass<Ts...> m3(std::forward<Ts>(args)...);
+  }
+
+  int main()
+  {
+    std::string str{ "hello world" };
+    std::vector ivec{ 2, 5, 7, 9 };
+
+    func_1(str, ivec, 10);
+  }
+*/
+
+/*
+  // non-type template parameter pack
+  template <size_t ...Ns>
+  struct AStruct {
+    AStruct()
+    {
+      std::cout << typeid(AStruct).name() << '\n';
+    }
+  };
+
+  // non-type template parameter pack
+  template <size_t ...Ns>
+  void func()
+  {
+    AStruct<Ns...> a1;
+  }
+
+  int main()
+  {
+    func<1, 3, 5, 7>();
+    // output -> struct AStruct<1, 3, 5, 7>
+
+    func<1, 2>();
+    // output -> struct AStruct<1, 2>
+
+    func<>();
+    // output -> struct AStruct<>
+  }
+*/
+
+/*
+  template <typename ...Types, int ...Ns>
+  void func(Types(&... args)[Ns])
+  {
+    std::cout << __FUNCSIG__ << '\n'
+    // std::cout << __PRETTY_FUNCTION__ << '\n';
+  }
+
+  int main()
+  {
+    int arr_1[2]{};
+    double arr_2[3]{};
+
+    func(arr_1);
+    // func<int, 2u>(int(&)[2])
+
+    func(arr_1, arr_2);
+    // func<int, double, 2u, 3u>(int(&)[2], double(&)[3])
+  }
+*/
+
+/*
+  #include <type_traits>    // std::common_type
+  #include <array> 
+
+  template <typename ...Ts>
+  struct Mystruct {
+    std::common_type_t<Ts...> m_val;
+
+    Mystruct(Ts... args) : m_val{ (... + args) } {}
+  };
+
+  template <typename ...Ts>
+  void func(Ts... args)
+  {
+    using namespace std;
+
+    array<common_type_t<Ts...>, sizeof...(Ts)> arr{ args... };
+    cout << "type of arr = " << typeid(arr).name() << '\n';
+
+    Mystruct m1(args...);
+    cout << "m1.m_val = " << m1.m_val << '\n';
+    cout << "type of m1 = " << typeid(m1).name() << '\n';
+
+    Mystruct m2(--args...);
+    cout << "m2.m_val = " << m2.m_val << '\n';
+    cout << "type of m2 = " << typeid(m2).name() << '\n';
+  }
+
+  int main()
+  {
+    func(10, 20, 30, 40);
+    // output ->
+    // type of arr = std::array<int, 4>
+    // m1.m_val = 100
+    // type of m1 = Mystruct<int, int, int, int>
+    // m2.m_val = 96
+    // type of m2 = Mystruct<int, int, int, int>
+  }
+*/
+
+/*
+  #include <type_traits>  // std::integral_constant
+
+  int main()
+  {
+    using namespace std;
+
+    // ------------------------------------------------
+
+    constexpr auto x = integral_constant<int, 5>{};
+    // "x"'s type is std::integral_constant<int, 5>
+
+    // ------------------------------------------------
+
+    constexpr int i1 = integral_constant<int, 5>{};
+    constexpr int i2 = integral_constant<int, 5>{}.operator int();
+    // Those 2 lines are equivalent.
+
+    // ------------------------------------------------
+
+    constexpr int i3 = integral_constant<int, 5>{}();
+    constexpr int i4 = integral_constant<int, 5>{}.operator()();
+    // Those 2 lines are equivalent.
+
+    // ------------------------------------------------
+
+    constexpr auto elem = integral_constant<int, 5>{} +
+                          integral_constant<int, 2>{};
+    // elem -> 7
+    // both expressions are casted to int 
+    // with operator int() function
+  }
+*/
+
+/*
+  #include <type_traits> 
+
+  template <typename T>
+  struct Is_Pointer : std::false_type {};
+  // primary template of Is_Pointer metafunction
+
+  template <typename T>
+  struct Is_Pointer<T*> : std::true_type {};
+  // partial specialization for Is_Pointer metafunction
+  // for pointer types
+
+  template <typename T>
+  constexpr bool Is_Pointer_v = Is_Pointer<T>::value;
+  // variable template for Is_Pointer metafunction
+
+  int main()
+  {
+    constexpr bool b1 = Is_Pointer<int>::value;   
+    // b1 -> false
+
+    constexpr bool b2 = Is_Pointer<int*>::value;
+    // b2 -> true
+
+    constexpr bool b3 = Is_Pointer_v<double>;
+    // b3 -> false
+
+    constexpr bool b4 = Is_Pointer_v<double*>;
+    // b4 -> true
+  }
+*/
+
+/*
+  // template type parameter pack
+  template <typename ...Ts>
+  struct Encloser {
+
+    // non-type template parameter pack
+    template <Ts... args>
+    struct Nested {};
+  };
+
+  using type_encloser = Encloser<double, long, char>;
+  using type_nested = type_encloser::Nested<4.5, 55L, 'B'>;
+
+  int main()
+  {
+    std::cout << typeid(type_encloser).name() << '\n';
+    // output -> Encloser<double, long, char>
+
+    std::cout << typeid(type_nested).name() << '\n';
+    // output -> 
+    //  Encloser<double, long, char>::Nested<4.500000, 55, 65>
+  }
+*/
+
+/*
+  #include <concepts>  // std::same_as
+
+  constexpr int square(int x) { return x * x; }
+
+  template <int N>
+  void print_int_array(int(&i_arr)[N])
+  {
+    for (int i : i_arr)
+      std::cout << i << ' ';
+    std::cout << '\n';
+  }
+
+  // concept constrained abbreviated template syntax
+  void func(std::same_as<int> auto... args)
+  {
+    int arr_1[] = { args... };
+    print_int_array(arr_1);
+
+    int arr_2[] = { args... , 0 };
+    print_int_array(arr_2);
+
+    int arr_3[sizeof...(args) + 2] = { 0, args..., 9 };
+    print_int_array(arr_3);
+
+    int arr_4[] = { square(args)... };
+    print_int_array(arr_4);
+  }
+
+  int main()
+  {
+    func(1, 3, 5, 7);
+    // output -> 
+    //  1 3 5 7
+    //  1 3 5 7 0
+    //  0 1 3 5 7 9
+    //  1 9 25 49
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_base_of
+
+  template <typename ...Ts>
+  class Base {};
+
+  template <typename ...Ts>
+  class Der : public Base<Ts...> {
+  public:
+    constexpr static size_t size = sizeof...(Ts);
+  };
+
+  int main()
+  {
+    using namespace std;
+
+    constexpr auto N = Der<int, double>::size;
+    // N -> 2u
+
+    static_assert(is_base_of_v<Base<int, char>, Der<int, char>>); 
+    // VALID
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_base_of
+
+  template <typename ...Ts>
+  class Base {};
+
+  template <typename ...Ts>
+  class Der : public Base<Ts*...> {
+  public:
+    constexpr static size_t size = sizeof...(Ts);
+  };
+
+  int main()
+  {
+    using namespace std;
+
+    static_assert(is_base_of_v<Base<int, char>, Der<int, char>>); 
+    // error : static assertion failed
+
+    static_assert(is_base_of_v<Base<int*, long*>, Der<int, long>>);
+    // VALID
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_base_of
+
+  struct X {
+    X(int i) { std::cout << "X::X(int i), i = " << i << '\n'; }
+  };
+
+  struct Y {
+    Y(int i) { std::cout << "Y::Y(int i), i = " << i << '\n'; }
+  };
+
+  struct Z {
+    Z(int i) { std::cout << "Z::Z(int i), i = " << i << '\n'; }
+  };
+
+  template <typename ...Ts>
+  class A : public Ts... {
+  public:
+    A() : Ts{ 22 }... {}
+  };
+
+  int main()
+  {
+    A<X, Y, Z> a1;
+    // output ->
+    //  X::X(int i), i = 22
+    //  Y::Y(int i), i = 22
+    //  Z::Z(int i), i = 22
+
+    using a1_type = decltype(a1);
+
+    static_assert(std::is_base_of_v<X, a1_type> &&
+                  std::is_base_of_v<Y, a1_type> &&
+                  std::is_base_of_v<Z, a1_type>);
+    // VALID
+  }
+*/
+
+/*
+  struct A {
+    void a_func(){}
+  };
+
+  struct B {
+    void b_func(){}
+  };
+
+  struct C {
+    void c_func(){}
+  };
+
+  template <typename ...Ts>
+  struct Mystruct : Ts... {};
+
+  int main()
+  {
+    Mystruct<A, B, C> m1;
+
+    m1.a_func();  // VALID
+    m1.b_func();  // VALID
+    m1.c_func();  // VALID
+  }
+*/
+
+/*
+  struct A {
+    void func(int x)
+    {
+      std::cout << "A::func(int x), x = " << x << '\n';
+    }
+  };
+
+  struct B {
+    void func(double x)
+    {
+      std::cout << "B::func(double x), x = " << x << '\n';
+    }
+  };
+
+  struct C {
+    void func(char x)
+    {
+      std::cout << "C::func(char x), x = " << x << '\n';
+    }
+  };
+
+  template <typename ...Ts>
+  struct XStruct : Ts... {};
+
+  template <typename ...Ts>
+  struct YStruct : Ts... {
+
+    using Ts::func...;  
+    // using declaration with pack expansion 
+  };
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    XStruct<A, B, C> x1;
+    x1.func(10);    // syntax error
+    x1.func(3.4);   // syntax error
+    x1.func('A');   // syntax error
+    // error: request for member 'func' is ambiguous
+
+    // ------------------------------------------------
+
+    YStruct<A, B, C> y1;
+    y1.func(10);  // output -> A::func(int x), x = 10
+    y1.func(3.4); // output -> B::func(double x), x = 3.4
+    y1.func('A'); // output -> C::func(char x), x = A
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+                  ----------------------------
+                  | fold expressions (C++17) |
+                  ----------------------------
+*/
+
+/*
+  --------------
+  | unary fold | 
+  --------------
+
+  binary operator is being used. 
+    - one operand is `...` elipsis token
+    - other operand is parameter pack
+
+  when parameter pack is empty it will cause syntax error.
+
+  ------------------------------------------------
+
+  - when elipsis token is on the left of parameter pack
+    it is called unary left fold.
+
+  (... + args)  -> unary left fold
+    (((arg1 + arg2) + arg3) + arg4)
+
+  ------------------------------------------------
+
+  - when elipsis token is on the right of parameter pack
+    it is called unary right fold.
+
+  (args + ...)  -> unary right fold
+    (arg1 + (arg2 + (arg3 + arg4)))
+
+  ------------------------------------------------
+  ------------------------------------------------
+
+  ---------------
+  | binary fold | 
+  ---------------
+  
+  - when elipsis token is on the left of parameter pack
+    it is called binary left fold.
+
+  (init expression + ... + args ) -> binary left fold
+    (((0 + arg1) + arg2) + arg3)
+
+  ------------------------------------------------
+
+  - when elipsis token is on the right of parameter pack
+    it is called binary right fold.
+
+  (args + ... + init expression ) -> binary right fold
+    (arg1 + (arg2 + (arg3 + 0)))
+
+  ------------------------------------------------
+*/
+
+/*
+  #include <string>
+
+  template <typename ...Ts>
+  constexpr auto sum_left(Ts... args)
+  {
+    return (... + args);    // unary left fold
+  }
+
+  template <typename ...Ts>
+  constexpr auto sum_right(Ts... args)
+  {
+    return (args + ...);    // unary right fold
+  }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    constexpr auto ival_1 = sum_left(1, 2, 3, 4, 5);  
+    // ival_1 -> 15
+    // ((((1 + 2) + 3) + 4) + 5)
+
+    // ------------------------------------------------
+
+    constexpr auto ival_2 = sum_right(1, 2, 3, 4, 5);
+    // ival_2 -> 15
+    // (1 + (2 + (3 + (4 + 5))))
+
+    // ------------------------------------------------
+
+    using namespace std::literals;
+
+    auto str_1 = sum_left("hello"s, "_world", "_galaxy");
+    // (("hello"s + "world") + "galaxy")
+    // ((std::string + const char*) + const char*)
+
+    // std::string + const char* -> std::string
+
+    std::cout << "str_1 = " << str_1 << '\n';
+    // output -> str_1 = hello world galaxy
+
+    // ------------------------------------------------
+
+    auto str_2 = sum_right("hello"s, " world", " universe");
+    // syntax error
+    // error: invalid operands of types 'const char*' 
+    // and 'const char*' to binary 'operator+'
+
+    // (std::string + (const char* + const char*))
+    // const char* + const char* -> syntax error 
+    // pointer addition is syntax error
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <typename ...Args>
+  constexpr auto fdiv_right(Args&&... args)
+  {
+    return (args / ...);  // unary right fold
+  }
+
+  template <typename ...Args>
+  constexpr auto fdiv_left(Args&&... args)
+  {
+    return (... / args);  // unary left fold
+  }
+
+  int main()
+  {
+    constexpr auto i1 = fdiv_right(500, 50, 5, 2);  // i1 -> 20
+    // (500 / (50 / (5 / 2)))
+
+    constexpr auto i2 = fdiv_left(500, 50, 5, 2);   // i2 -> 1
+    // (((500 / 50) / 5) / 2)
+  }
+*/
+
+/*
+  template <typename ...Args>
+  constexpr auto fdiv_right(Args&&... args)
+  {
+    return (args / ...);  // unary right fold
+  }
+
+  template <typename ...Args>
+  constexpr auto fdiv_left(Args&&... args)
+  {
+    return (... / args);  // unary left fold
+  }
+
+  int main()
+  {
+    // ------------------------------------------------
+    
+    // sending 1 argument is VALID
+
+    constexpr auto i1 = fdiv_right(11);   // i1 -> 11
+    constexpr auto i2 = fdiv_left(22);    // i2 -> 22
+
+    // ------------------------------------------------
+
+    // sending 0 argument is syntax error
+
+    constexpr auto i3 = fdiv_right(); // syntax error
+    // error: fold of empty expansion over operator/
+
+    constexpr auto i4 = fdiv_left();  // syntax error
+    // error: fold of empty expansion over operator/
+
+    // ------------------------------------------------
+
+    // when unary fold expression's binary operator
+    // is one of those operators,
+
+    // -  `&&` logical AND operator   --> true
+    // -  `||` logical OR  operator   --> false
+    // -  `,`  comma operator         --> void type
+
+    // sending 0 argument is VALID
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <utility>  // std::forward
+
+  template <typename ...Args>
+  constexpr auto sum_right(Args&&... args)
+  {
+    return (std::forward<Args>(args) + ...);
+    // unary right fold
+  }
+
+  template <typename ...Args>
+  constexpr auto sum_left(Args&&... args)
+  {
+    return (... + std::forward<Args>(args));
+    // unary left fold
+  }
+
+  int main()
+  {
+    constexpr auto val1 = sum_right(12, 4.5, 55L); // val -> 71.5
+    // (12 + (4.5 + 55))
+
+    constexpr auto val2 = sum_left(12, 4.5, 55L);  // val -> 71.5
+    // ((12 + 4.5) + 55)
+  }
+*/
+
+/*
+  #include <algorithm>  // std::count
+  #include <iterator>   // std::begin, std::end
+  #include <vector>
+  #include <string>
+
+  template <typename C, typename ...Ts>
+  auto matches(const C& range, const Ts&... ts)
+  {
+    using namespace std;
+    return (std::count(begin(range), end(range), ts) + ...); 
+    // unary right fold
+  }
+
+  int main()
+  {
+    std::vector ivec{ 11, 22, 33, 44, 55, 66, 77, 88, 99 };
+    std::cout << matches(ivec, 10, 11, 12, 20, 21, 22) << '\n';
+    // output -> 2 
+    // (1 - '11', 1 - '22')  --> (11, 22)
+
+    std::string str{"hello world and universe"};
+    std::cout << matches(str, 'e', 'f', 'i') << '\n';
+    // output -> 4
+    // (3 - 'e', 1 - 'i')   --> ('e', 'i', 'e', 'e')
+  }
+*/
+
+/*
+  template <int ...Vals>
+  constexpr int Sum = (... + Vals); 
+  // unary left fold  
+
+  template <int ...Vals>
+  constexpr int Sum_Square = (... + (Vals * Vals));
+  // unary left fold
+
+  int main()
+  {
+    std::cout << Sum<1> << '\n';                  // output -> 1
+    // (1)
+
+    std::cout << Sum<1, 2> << '\n';               // output -> 3
+    // (1 + 2)
+
+    std::cout << Sum<11, 33, 66> << '\n';         // output -> 110
+    // ((11 + 33) + 66)
+
+    std::cout << Sum_Square<1, 3, 5, 7> << '\n';  // output -> 84
+    // (((1*1 + 3*3) + 5*5) + 7*7)
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_void
+
+  auto fold_and_right(auto... args)
+  {
+    return (args && ...);
+  }
+
+  auto fold_or(auto... args)
+  {
+    return (args || ...);
+  }
+
+  auto fold_comma(auto... args)
+  {
+    return (args, ...);
+  }
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    std::cout << fold_and() << '\n';  // output -> true
+    std::cout << fold_or() << '\n';   // output -> false
+
+    static_assert(std::is_void_v<decltype(fold_comma())>);  
+    // VALID
+
+    // Those results for empty parameter pack are same for,
+    // unary left and unary right fold expressions.
+  }
+*/
+
+/*
+  #include <concepts> // std::convertible_to
+
+  // concept constrained abbreviated template syntax
+  constexpr auto func_and(std::convertible_to<bool> auto... args)
+  {
+    return (... && args); 
+    // unary left fold
+  }
+
+  int main()
+  {
+    constexpr bool b1 = func_and(true, true, true, true);
+    // b1 -> true
+
+    constexpr bool b2 = func_and((10 > 5), (4 < 8), false, 5 == 5);
+    // b2 -> false
+  }
+*/
+
+/*
+  #include <utility>  // std::forward
+
+  template <typename T, typename ...Args>
+  bool all_in_range(const T& min, const T& max, Args&&... args)
+  {
+    return (( min <= std::forward<Args>(args) 
+              && max >= std::forward<Args>(args)) && ...);
+    // unary right fold
+  }
+
+  int main()
+  {
+    std::boolalpha(std::cout);
+
+    // ------------------------------------------------
+
+    std::cout << all_in_range(1, 20, 2, 4, 6, 7, 9, 11) << '\n';
+    // return (1 <= 2 && 20 >= 2) && 
+              ((1 <= 4 && 20 >= 4) && 
+              ((1 <= 6 && 20 >= 6) && 
+              ((1 <= 7 && 20 >= 7) && 
+              ((1 <= 9 && 20 >= 9) && 
+              (1 <= 11 && 20 >= 11)))))
+    // output -> true;
+
+    // ------------------------------------------------
+    std::cout << all_in_range(10, 20, 12, 15, 25, 17, 16) <<'\n';
+    // return (10 <= 12 && 20 >= 12) && 
+              ((10 <= 15 && 20 >= 15) && 
+              ((10 <= 25 && 20 >= 25) && 
+              ((10 <= 17 && 20 >= 17) && 
+              (10 <= 16 && 20 >= 16))))
+    // output -> false;
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  // "insert" member function of std::set is returning 
+  // an <iterator, bool> pair.
+
+  // when an element inserted to a set successfully,
+  // iterator will point to the inserted element and
+  // bool value will be true.
+
+  // when an element is already in the set,
+  // iterator will point to the element and
+  // bool value will be false.
+
+  #include <set>
+  #include <utility>  // std::forward
+
+  template <typename S, typename ...Args>
+  bool func_insert(S& set_arg, Args&&... args)
+  {
+    return (set_arg.insert(std::forward<Args>(args)).second && ...);
+    // unary right fold
+  } 
+
+  int main()
+  {
+    boolalpha(std::cout);
+
+    std::set myset{ 33, 55, 99 };
+    std::cout << "myset.size() = " << myset.size() << '\n';
+    // output -> myset.size() = 3
+
+    std::cout << func_insert(myset, 10, 20, 30) << '\n';
+    // output -> true
+    std::cout << "myset.size() = " << myset.size() << '\n';
+    // output -> myset.size() = 6
+
+    std::cout << func_insert(myset, 11, 30, 44) << '\n';
+    // output -> false (30 is already in the set)
+    std::cout << "myset.size() = " << myset.size() << '\n';
+    // output -> myset.size() = 7
+  }
+*/
+
+/*
+  #include <string>
+  #include <bitset>
+
+  void print(const auto&... args)
+  {
+    ((std::cout << '|' << args << "| "), ...) << '\n';
+    // unary right fold
+  }
+
+  int main()
+  {
+    std::string str{ "hello world" };
+    std::bitset<16> bs{ 34525u };
+
+    print(12, str, bs, "hello galaxy", 3.14);
+    // output -> 
+    //  |12| |hello world| |1000011011011101| |hello galaxy| |3.14|
+
+    // print<int, std::string, std::bitset<16>, char[13], double>
+    //                          (12, str, bs, "hello galaxy", 3.14);
+  }
+*/
+
+/*
+  #include <concepts> // std::same_as
+
+  constexpr int sum(std::same_as<int> auto... args)
+  {
+    int sum{};
+
+    ((sum += args), ...); // unary right fold
+    return sum;
+  }
+
+  int main()
+  {
+    constexpr auto val = sum(1, 2, 3, 4);   // val -> 10
+    // (sum += 1, ((sum += 2), ((sum += 3), (sum += 4))));
+  }
+*/
+
+/*
+  template <typename T>
+  void func_2(T x)
+  {
+    std::cout << "bar(" << x << "), ";
+  }
+
+  template <typename ...Ts>
+  void func_1(Ts... args)
+  {
+    (func_2(args), ...);
+  }
+
+  int main()
+  {
+    func_1(1, 2, 3, 4, 5);
+    // output -> bar(1), bar(2), bar(3), bar(4), bar(5),
+  }
+*/
+
+/*
+  #include <array>
+  #include <vector>
+  #include <type_traits>  // std::is_pointer
+
+  template <class T>
+  concept Has_Iterator = requires (T a) {
+    a.begin();
+    a.end();
+  };
+
+  template <typename T>
+  void func_impl(const T& x)
+  {
+    if constexpr(Has_Iterator<T>)
+    {
+      std::cout << "[";
+      for (auto& elem : x)
+        std::cout << elem << ", ";
+      std::cout << "]";
+
+      std::cout << '\n';
+    }
+    else if constexpr (std::is_pointer_v<T>)
+      std::cout << *x << '\n';
+    else
+      std::cout << x << '\n';
+  }
+
+  void func_print(const auto&... args)
+  {
+    (func_impl(args), ...);   // unary right fold
+    // (func_impl(p1), (func_impl(p2), (func_impl(p3)))
+  }
+
+  int main()
+  {
+    std::array arr{ 9, 8, 7, 6, 5 };
+    std::vector dvec{ 3.4, 5.6, 7.8, 9.1 };
+    int* p_ival{ new int{ 11 } };
+
+    func_print(333, 4.444, arr, dvec, p_ival);
+    // output ->
+    //  333
+    //  4.444
+    //  [9, 8, 7, 6, 5, ]
+    //  [3.4, 5.6, 7.8, 9.1, ]
+    //  11
+
+    delete p_ival;
+  }
+*/
+
+/*
+  #include <utility>  // std::forward
+
+  template <typename First, typename ...Args>
+  void fold_print(First&& f, Args&&... args)
+  {
+    std::cout << f;
+
+    auto print_with_comma = [](const auto& v) {
+      std::cout << ", " << v;
+    };
+
+    (... , print_with_comma(std::forward<Args>(args)));
+    // unary left fold
+
+    std::cout << '\n';
+  }
+
+  int main()
+  {
+    fold_print("hello", 11, 22, 33, "world");
+    // output ->
+    //  hello, 11, 22, 33, world
+  }
+*/
+
+/*
+  #include <vector>
+  #include <utility>  // std::forward
+
+  template <typename T, typename ...Args>
+  void push_back_right(std::vector<T>& vec, Args&&... args)
+  {
+    (vec.push_back(std::forward<Args>(args)), ...);
+    // unary right fold
+  }
+
+  template <typename T, typename ...Args>
+  void push_back_left(std::vector<T>& vec, Args&&... args)
+  {
+    (... , vec.push_back(std::forward<Args>(args)));
+    // unary left fold
+  }
+
+  int main()
+  {
+    std::vector<int> ivec{};
+
+    push_back_left(ivec, 1, 2, 3, 4, 5);
+    push_back_right(ivec, -1, -2, -3, -4, -5);
+
+    for (auto elem : ivec)
+      std::cout << elem << ' ';
+    // output -> 1 2 3 4 5 -1 -2 -3 -4 -5
+  }
+*/
+
+/*
+  #include <vector>
+  #include <utility>  // std::forward
+
+  template <typename T, typename ...Ts>
+  decltype(auto) func_push_back(std::vector<T>& vec, Ts&&... args)
+  {
+    (... , vec.push_back(std::forward<Ts>(args)));
+    return (vec); // decltype(expression) -> std::vector<T>&
+  }
+
+  int main()
+  {
+    std::vector<int> ivec;
+
+    func_push_back(ivec, 1, 2, 3, 4, 5).push_back(6);
+
+    for (auto elem : ivec)
+      std::cout << elem << ' ';
+    // output -> 1 2 3 4 5 6
+  }
+*/
+
+/*
+  #include <functional>  // std::hash
+  #include <string>
+
+  int main()
+  {
+    std::cout << std::hash<int>{}(56) << '\n';
+    // output -> 56
+
+    std::cout << std::hash<double>{}(3.14) << '\n';
+    // output -> 5464867211497793177
+
+    std::string str{ "hello world" };
+    std::cout << std::hash<std::string>{}(str) << '\n';
+    // output -> 5577293430985752569
+  }
+*/
+
+/*
+  #include <string>
+  #include <functional>  // std::hash
+
+  struct Mystruct {
+    int m_ival;
+    double m_dval;
+    std::string m_str;
+  };
+
+  // ---- First Way ----
+  // explicit specialization
+  template <>
+  struct std::hash<Mystruct> {
+    std::size_t operator()(const Mystruct& m)
+    {
+      std::hash<int>{}(m.m_ival)        +  
+      std::hash<double>{}(m.m_dval)     +
+      std::hash<std::string>{}(m.m_str);
+    }
+  };
+
+  // ---- Second Way ----
+  struct Mystruct_hasher {
+    std::size_t operator()(const Mystruct& m)
+    {
+      std::hash<int>{}(m.m_ival)        +  
+      std::hash<double>{}(m.m_dval)     +
+      std::hash<std::string>{}(m.m_str);
+    }
+  };
+*/
+
+/*
+  template <typename T>
+  void hashCombine(std::size_t& seed, const T& val)
+  {
+    seed ^= std::hash<T>{}(val) + 
+            0x9e3779b9          + 
+            (seed << 6)         + 
+            (seed >> 2);
+  }
+
+  template <typename ...Ts>
+  std::size_t combinedHashValue(const Ts&... args)
+  {
+    std::size_t seed = 0; // initial seed
+    (... , hashCombine(seed, args));
+    return seed;
+  }
 */
