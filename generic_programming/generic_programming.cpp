@@ -5783,7 +5783,7 @@
 */
 
 /*
-  #include <type_traits>  // std::is_same
+  #include <type_traits>  // std::is_same, std::is_arithmetic
   #include <string>       // std::to_string
 
   template <typename T>
@@ -5817,6 +5817,8 @@
 */
 
 /*
+  // using tag-dispatch technique for std::advance
+
   #include <iterator>  
   // std::random_access_iterator_tag
   // std::bidirectional_iterator_tag
@@ -5894,5 +5896,1756 @@
     // output -> 44
 
     // ------------------------------------------------
+  }
+*/
+
+/*
+  // using static if for std::advance 
+
+  #include <type_traits>  // std::is_same
+  #include <iterator>     
+  // std::random_access_iterator_tag
+  // std::bidirectional_iterator_tag
+  // std::input_iterator_tag
+  #include <vector>
+  #include <list>
+
+  template <typename Iter, typename Dist>
+  void Advance(Iter& pos, Dist N)
+  {
+    using namespace std;
+
+    using Cat = typename iterator_traits<Iter>::iterator_category;
+
+    if constexpr (is_same_v< Cat, random_access_iterator_tag>)
+    {
+      cout << "random access iterator\n";
+      pos += N;
+    }
+    else if constexpr (is_same_v<Cat, bidirectional_iterator_tag>)
+    {
+      cout << "bidirectional iterator\n";
+
+      if (N >= 0)
+        while (N--)
+          ++pos;
+      else
+        while (N++)
+          --pos;
+    }
+    else // std::input_iterator_tag
+    {
+      cout << "input iterator\n";
+
+      while (N--)
+        ++pos;
+    } 
+  }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    std::vector<int> ivec{ 1, 2, 3, 4, 5 };
+    auto vec_iter = ivec.begin();
+    Advance(vec_iter, 3);
+    // output -> random access iterator
+    std::cout << *vec_iter << '\n';
+    // output -> 4
+
+    // ------------------------------------------------
+
+    std::list<int> ilist{ 11, 22, 33, 44, 55 };
+    auto list_iter = ilist.begin();
+    Advance(list_iter, 4);
+    // output -> bidirectional iterator
+    std::cout << *list_iter << '\n';
+    // output -> 55
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <int N>
+  constexpr int fibonacci()
+  {
+    return fibonacci<N - 1>() + fibonacci<N - 2>();
+  }
+
+  template <>
+  constexpr int fibonacci<1>() { return 1; }
+
+  template <>
+  constexpr int fibonacci<0>() { return 0; }
+
+  int main()
+  {
+    constexpr auto x = fibonacci<10>();   // x -> 55
+  }
+*/
+
+/*
+  // fibonacci with static if
+
+  template <int N>
+  constexpr int fibonacci()
+  {
+    if constexpr (N >= 2)
+      return fibonacci<N - 1>() + fibonacci<N - 2>();
+    else
+      return N;
+  }
+
+  int main()
+  {
+    constexpr auto x = fibonacci<10>();   // x -> 55
+  }
+*/
+
+/*
+  #include <string>
+
+  template <typename T>
+  std::string to_str(T t)
+  {
+    return std::to_string(t);
+  }
+
+  std::string to_str(const std::string& str)
+  {
+    return str;
+  }
+
+  std::string to_str(const char* c_str)
+  {
+    return c_str;
+  }
+
+  std::string to_str(bool b)
+  {
+    return b ? "true" : "false";
+  }
+
+  int main()
+  {
+    std::cout << to_str("hello") << '\n';
+    std::cout << to_str(std::string{ "world" }) << '\n';
+    std::cout << to_str(13) << '\n';
+    std::cout << to_str(3.14) << '\n';
+    std::cout << to_str(true) << '\n';
+
+    // output ->
+    //  hello
+    //  world
+    //  13
+    //  3.140000
+    //  true
+  }
+*/
+
+/*
+  // using static if for to_str
+
+  #include <type_traits>  // std::is_same, std::is_convertible
+  #include <string>       // std::to_string
+
+  template <typename T>
+  std::string to_str(T t)
+  {
+    if constexpr (std::is_convertible_v<T, std::string>)
+      return t;
+    else if constexpr (std::is_same_v<T, bool>)
+      return t ? "true" : "false";
+    else 
+      return std::to_string(t);
+  }
+
+  int main()
+  {
+    std::cout << to_str("hello") << '\n';
+    std::cout << to_str(std::string{ "world" }) << '\n';
+    std::cout << to_str(13) << '\n';
+    std::cout << to_str(3.14) << '\n';
+    std::cout << to_str(true) << '\n';
+
+    // output ->
+    //  hello
+    //  world
+    //  13
+    //  3.140000
+    //  true
+  }
+*/
+
+/*
+  template <typename T, typename ...Ts>
+  void print(const T& x, const Ts&... args)
+  {
+    if constexpr (sizeof...(args) == 0)
+      std::cout << x << '\n';
+    else
+      std::cout << x << ", ";
+
+    if constexpr (sizeof...(args) != 0)
+      print(args...);
+  }
+
+  int main()
+  {
+    print(12, 3.14, "hello", true, 'A');
+    // output -> 12, 3.14, hello, 1, A
+  }
+*/
+
+/*
+  // is_trivially_copyable_v is a compile-time check
+  // that a type can be copied with std::memcpy(byte by byte)
+
+  #include <cstring>      // std::memcpy
+  #include <type_traits>  // std::is_trivially_copyable
+  #include <algorithm>    // std::copy
+
+  template <typename T, std::size_t N>
+  void copy_array(T(&dest)[N], const T(&src)[N])
+  {
+    if constexpr (std::is_trivially_copyable_v<T>)
+      std::memcpy(dest, src, N * sizeof(T));
+    else
+      std::copy(src, std::end(source), dest);
+  }
+*/
+
+/*
+  #include <string>
+  #include <vector>
+
+  // --------------------------------------------------
+
+  class AClass {
+  private:
+    int m_i;
+    double m_d;
+    std::string m_str;
+    std::vector<int> m_ivec;
+  public:
+    template <std::size_t N>
+    auto get();
+  };
+
+  template <>
+  auto AClass::get<0>(){ return m_i; }
+
+  template <>
+  auto AClass::get<1>(){ return m_d; }
+
+  template <>
+  auto AClass::get<2>(){ return m_str; }
+
+  template <>
+  auto AClass::get<3>(){ return m_ivec; }
+
+  // --------------------------------------------------
+
+  // static if alternative
+  class BClass {
+  private:
+    int m_i;
+    double m_d;
+    std::string m_str;
+    std::vector<int> m_ivec;
+  public:
+    template <std::size_t N>
+    auto get() 
+    {
+      if constexpr (N == 0) return m_i;
+      else if constexpr (N == 1)  return m_d;
+      else if constexpr (N == 2)  return m_str;
+      else if constexpr (N == 3)  return m_ivec;
+    }
+  };
+
+  // --------------------------------------------------
+*/
+
+/*
+  #include <vector>
+
+  template <typename T>
+  void func(std::vector<T>& vec, T&& elem);
+
+  int main()
+  {
+    using namespace std;
+
+    vector<int> ivec;
+    int x{ 11 };
+
+    // ------------------------------------------------
+
+    func(ivec, 12); // VALID
+    // T is deduced as int for both function parameter
+
+    // ------------------------------------------------
+
+    func(ivec, x);  // syntax error
+    // error: no matching function for call to 
+    // 'func(std::vector<int>&, int&)
+    // note: deduced conflicting types for parameter 'T' 
+    // ('int' and 'int&')
+
+    // T will be deduce as int for the 1st function parameter
+    // T will be deduce as int& for the 2nd function parameter
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <string>
+
+  template <typename T>
+  void func(std::vector<T>, T);
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    std::vector<int> ivec{};
+    func(ivec, 11); // VALID
+
+    // ------------------------------------------------
+
+    std::vector<std::string> svec{};
+    func(svec, "hello world"); // syntax error
+
+    // error: no matching function for call to 
+    // 'func(std::vector<std::basic_string<char>>&, const char [12])'
+
+    // T will be deduce to std::string for the 1st function parameter
+    // T will be deduce to const char* for the 2nd function parameter
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <string>
+  #include <type_traits>  // std::type_identity(metafunction)
+
+  // ------------------------------------------------------
+
+  template <typename T>
+  struct Type_Identity {
+    using type = T;
+  };
+
+  template <typename T>
+  using Type_Identity_t = typename Type_Identity<T>::type;
+
+  template <typename T>
+  void func(std::vector<T>, Type_Identity_t<T>);
+
+  // ------------------------------------------------------
+
+  template <typename T>
+  void func_2(std::vector<T>, std::type_identity_t<T>);
+
+  int main()
+  {
+    std::vector<int> ivec{};
+    func(ivec, 11); // VALID
+
+    std::vector<std::string> svec{};
+    func(svec, "hello world");  // VALID
+    // template argument deduction is disabled for the 2nd parameter
+  }
+*/
+
+/*
+                  -----------------------------
+                  | static_assert declaration |
+                  -----------------------------
+*/
+
+/*
+  #include <type_traits>  
+  // std::is_integral, std::is_floating_point
+
+  template <typename T>
+  void foo(T x)
+  {
+    if constexpr (std::is_integral_v<T>)
+      std::cout << "integral type\n";
+    else if constexpr (std::is_floating_point_v<T>)
+      std::cout << "floating point type\n";
+    else
+      static_assert(false);
+  }
+
+  class Myclass{};
+
+  int main()
+  {
+    foo("hello");
+    // error: static assertion failed: 
+    // integral or floating point type needed
+
+    foo(Myclass{});
+    // error: static assertion failed: 
+    // integral or floating point type needed
+  }
+*/
+
+/*
+  #include <type_traits>  
+  // std::is_integral, std::is_floating_point
+
+  template <typename T>
+  void foo(T x)
+  {
+    if constexpr (std::is_integral_v<T>)
+      std::cout << "integral type\n";
+    else if constexpr (std::is_floating_point_v<T>)
+      std::cout << "floating point type\n";
+    else
+      static_assert(sizeof(T) != sizeof(T));
+  }
+
+  class Myclass{};
+
+  int main()
+  {
+    foo("hello");
+    // error: static assertion failed: 
+
+    foo(Myclass{});
+    // error: static assertion failed: 
+  }
+*/
+
+/*
+  #include <type_traits>  // std::false_type
+
+  template <typename T>
+  struct always_false : std::false_type{};
+
+  template <typename T>
+  constexpr bool always_false_v = always_false<T>::value;
+
+  template <typename T>
+  void foo(T x)
+  {
+    if constexpr (std::is_integral_v<T>)
+      std::cout << "integral type\n";
+    else if constexpr (std::is_floating_point_v<T>)
+      std::cout << "floating point type\n";
+    else
+      static_assert(always_false_v<T>);
+  }
+
+  class Myclass{};
+
+  int main()
+  {
+    foo("hello");
+    // error: static assertion failed
+
+    foo(Myclass{});
+    // error: static assertion failed
+  }
+*/
+
+/*
+  template <typename ...>
+  constexpr bool always_false() { return false; }
+
+  template <typename T>
+  void foo(T x)
+  {
+    if constexpr (std::is_integral_v<T>)
+      std::cout << "integral type\n";
+    else if constexpr (std::is_floating_point_v<T>)
+      std::cout << "floating point type\n";
+    else
+      static_assert(always_false<T>());
+  }
+
+  class Myclass{};
+
+  int main()
+  {
+    foo("hello");
+    // error: static assertion failed
+    // note: 'always_false<const char*>()' evaluates to false
+
+    foo(Myclass{});
+    // error: static assertion failed
+    // note: 'always_false<Myclass>()' evaluates to false
+  }
+*/
+
+/*
+                  --------------------------
+                  | template instantiation |
+                  --------------------------
+*/
+
+/*
+  template <typename T>
+  class Myclass {};
+
+  template <typename T>
+  void foo(T);
+
+  int main()
+  {
+    Myclass<int> x; // Myclass<int> specialization
+    foo(1.34);      // foo<double> specialization
+  }
+*/
+
+/*
+  template <typename T>
+  void foo(T x)
+  {
+    // ------------------------------------------------
+
+    func_1(x);    // VALID
+    // "func_1" function's parameter is dependent on 
+    // template parameter(T)
+
+    // two phase name lookup
+    // 1. unqualified lookup for "func_1" identifier
+    // 2. ADL for "func_1" identifier
+
+    // because of there is a chance that "func_1" identifier
+    // can be found with ADL because "func_1" parameter 
+    // variable is dependent on template parameter,
+    // it will not be a syntax error.
+
+    // ------------------------------------------------
+
+    func_2(12);   // syntax error
+    // error: there are no arguments to 'func_2' 
+    // that depend on a template parameter, 
+    // so a declaration of 'func_2' must be available 
+
+    // one phase name lookup
+    // 1. unqualified lookup for "func_2" identifier
+
+    // because of "func_2" parameter is not dependent on
+    // template parameter, there won't be a chance to find
+    // "func_2" identifier with ADL. 
+    // and because of there is no "func_2" visible identifier
+    // it will be a syntax error.
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <typename T>
+  void foo(T x)
+  {
+    func_1(x);
+  }
+
+  void func_1(int){}
+
+  int main()
+  {
+    foo(11);  // syntax error
+    // error: 'func_1' was not declared in this scope, 
+    // and no declarations were found by argument-dependent lookup 
+    // at the point of instantiation 
+
+    // 2 phase name lookup
+    // unqualified lookup for "func_1" identifier   : NOT FOUND
+    // ADL for "func_1" identifier                  : NOT FOUND
+    // so will be syntax error
+  }
+*/ 
+
+/*
+  class Myclass{};
+
+  template <typename T>
+  void foo(T x)
+  {
+    func_1(x);
+  }
+
+  void func_1(Myclass){}
+
+  int main()
+  {
+    foo(Myclass{}); // VALID
+
+    // 2 phase name lookup
+    // unqualified lookup for "func_1" identifier   : NOT FOUND
+    // ADL for "func_1" identifier                  : FOUND
+
+    // because Myclass definition is in global namespace scope
+    // whole global namespace scope will be searched and "func_1"
+    // identifier will be found. NO syntax error
+  }
+*/
+
+/*
+  class Myclass {};
+
+  template <typename T>
+  void foo(T x)
+  {
+    func_1(x);
+  }
+
+  int main()
+  {
+    foo(Myclass{}); // VALID
+
+    // 2 phase name lookup
+    // unqualified lookup for "func_1" identifier   : NOT FOUND
+    // ADL for "func_1" identifier                  : FOUND
+
+    // because Myclass definition is in global namespace scope
+    // whole global namespace scope will be searched and "func_1"
+    // identifier will be found. NO syntax error
+  }
+
+  void func_1(Myclass){}
+*/
+
+/*
+  ----------------------------------------------------
+
+  - derleyici, ismin bir template ismi olduğunu anladığı zaman 
+    belirli bir template argümanı setiye, bir template ID 
+    oluşturmak zorunda.
+
+  ----------------------------------------------------
+
+  template ID : 
+    template parametrelerine karşılık, template argümanlarının 
+    türlerinin belirlenmesi.
+
+  "foo" bir function template ismi, foo<int, int> bir template ID.
+  "Myclass" bir class template ismi, Myclass<int> bir template ID.
+
+  ----------------------------------------------------
+
+  derleyicinin template parametrelerine karşılık gelecek,
+  template argümanlarının türlerini bilmesi gerekiyor.
+
+  1. template argümanları explicit olarak belirlenebilir.
+  2. default template argümanı kullanıldığı durumda, 
+     template argümanları belirlenmiş olur.
+  3. fonksiyon çağrılarında, gönderilen argümanlardan 
+    template argument deduction yapılır.
+
+  ----------------------------------------------------
+
+  - template ID'si ile template instantiation aynı şey değil.
+
+  ----------------------------------------------------
+
+  - template instantiation öncesinde template substitution gerçekleşir.
+
+  - substitution : örneğin bir fonksiyon şablonu(function template) 
+    ise fonksiyonun parametrik yapısı ve geri dönüş türünün 
+    belirlenmesi. 
+    (substitution : yerleştirme, yerine koyma)
+
+  - template substitution sonucunda, oluşan fonksiyon  
+    function overload resolution'a girecek.
+  
+  - substitution sonucunda geçersiz bir durum oluştursa
+    (bir türün olmaması gibi) derleyici direkt sentak hatası 
+    vermek yerine, fonksiyonu overload setten çıkartır.
+    (SFINAE - Substitution Failure Is Not An Error)
+    Eğer overload sette başka bir aday bulunmuyorsa 
+    sentaks hatası olur.
+  
+  ----------------------------------------------------
+*/
+
+/*
+  template <typename T>
+  void func();
+
+  int main()
+  {
+    func<double>();   // explicit template argument
+    // the signature will join the overload resolution 
+    // will be generated by that line
+  }
+*/
+
+/*
+  template <typename T = int>
+  void func();
+
+  int main()
+  {
+    func();
+    // default template argument will be used when template ID 
+    // is being generated
+  }
+*/
+
+/*
+  template <typename T>
+  typename T::value_type func(T);
+
+  int main()
+  {
+    func(12); // syntax error
+    // error: no matching function for call to 'func(int)'
+    // error: 'int' is not a class, struct, or union type
+
+    // ---------------------------------------------------------
+
+    // 1. name lookup for "func" identifier  : FOUND 
+
+    // 2. T will be deduce to int with template argument deduction 
+
+    // 3. in substitution phase, because of function's return 
+    // type is int::value_type which is not a valid type
+    // "func" function template will be removed from overload set
+    // and because of there is no other viable function in overload set
+    // there will be a syntax error.
+
+    // ---------------------------------------------------------
+  }
+*/
+
+/*
+  // substitution failure is not an error (SFINAE)
+
+  template <typename T>
+  typename T::value_type func(T){}
+
+  void func(...){}
+
+  int main()
+  {
+    func(12); // VALID 
+
+    // ---------------------------------------------------------
+
+    // 1. name lookup for "func" identifier  : FOUND (2 viable)
+
+    // 2. T will be deduce to int with template argument deduction
+    //    in "func" function template 
+
+    // 3. in substitution phase, because of function template's 
+    // return type is int::value_type which is not a valid type
+    // "func" function template will be removed from overload set
+    // and there is another viable function in overload set
+    // so there won't be a syntax error.
+
+    // ---------------------------------------------------------
+  }
+*/
+
+/*
+  - belirli bir template specialization'ın instantiate edilmesini
+    derleyiciye verilen talimatla
+    (explicit template instantiation directive) sağlayabiliriz.
+
+
+  - bir başlık dosyasına template'lerin tanımları yerleştirildi  
+    ve bu başlık dosyası birden fazla kaynak dosyası tarafından
+    include edildi. Link zamanında ODR(One Definition Rule) 
+    sebebi ile bir hata alınmaz fakat her translation unit 
+    derleyici tarafından derlendiğinden, aynı template
+    tanımı her başlık dosyası için derlenecek, bu da derleme
+    süresinde artışına sebep olacaktır.
+    Header only library'lerde bu durum bir dezavantajdır.
+*/
+
+/*
+  - Hangi durumlarda instantiation gerekiyor, hangi durumlarda
+    gerekmiyor?
+*/
+
+/*
+  template <typename T>
+  struct AStruct {
+    void func_1(){}
+    void func_2(){}
+    void func_3(){}
+  };
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    AStruct<int>* p_as{};   // no instantiation
+    // compiler does not need to instantiate 
+    // AStruct<int> specialization because 
+    // only a pointer variable is created.
+
+    // ------------------------------------------------
+
+    AStruct<int> as;        // instantiation
+    // derleyici sınıf tanımını oluşturmak zorunda,
+    // fakat fonksiyonlar henüz çağrılmadıkları için 
+    // fonksiyonlar için herhangi bir kod yazmayacak.
+
+    // ------------------------------------------------
+
+    as.func_1(); 
+    // AStruct<int> specialization'ı için 
+    // "func_1" fonksiyonu için kod oluşturulacak.
+
+    // ------------------------------------------------
+
+    // fonksiyonlar için geçerli olan bu durum sınıfın 
+    // statik veri elemanları içinde geçerlidir.
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  // when a class template is instantiated, 
+  // its static data members should be instantiated as well.
+  // because it will become alive before "main" function is invoked.
+
+  template <typename T>
+  struct AStruct {
+    static T ms_x;
+  };
+
+  template <typename T>
+  T AStruct<T>::ms_x = 0;
+
+  int main()
+  {
+    AStruct<int> a1;          
+    // instantiation of AStruct<int> specialization
+    AStruct<double> a2;
+    // instantiation of AStruct<double> specialization
+    AStruct<double> a3;       
+
+    // ------------------------------------------------
+
+    std::cout << a1.ms_x << '\n';   // output -> 0
+    std::cout << a2.ms_x << '\n';   // output -> 0
+    std::cout << a3.ms_x << '\n';   // output -> 0
+
+    // ------------------------------------------------
+
+    a2.ms_x = 22;
+
+    std::cout << a1.ms_x << '\n';   // output -> 0
+    std::cout << a2.ms_x << '\n';   // output -> 22
+    std::cout << a3.ms_x << '\n';   // output -> 22
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <typename T> 
+  class Myclass;  
+  // declaration only no instantiation
+
+  Myclass<int>* p = 0;
+  // definition of Myclass<int> specialization is not needed
+
+  template <typename T>
+  class Myclass {
+  public:
+    void func();  // member function declaration
+  };
+
+  // class template definition is completed in this line
+
+
+  // parameter variable mx, uses class template declaration only
+  void global_func(Myclass<int>& mx)
+  {
+    mx.func();  
+    // for calling mx variable's member function 
+    // class template definition is needed
+    // Myclass<int>::func() member function definition is needed
+    // which is below this function("global_func").
+
+    Myclass<void>* p_mx = new Myclass<void>;
+    // for dynamic storage duration object 
+    // Myclass<void> class template definition is needed
+  }
+
+  template <typename T>
+  void Myclass<T>::func() 
+  {
+    // member function definition
+  }
+*/
+
+/*
+  template <typename T>
+  struct AStruct {
+    using type = typename T::value_type;
+  };
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    AStruct<int>* p_as{};   
+    // no instantiation because no need for class definition
+    // because of no instantiation, 
+    // no syntax error for because int::value_type 
+
+    // ------------------------------------------------
+
+    AStruct<double> a1; // syntax error
+    // error: 'double' is not a class, struct, or union type
+
+    // for "a1" variable to be created,
+    // AStruct<double> specialization should be instantiated
+    // in AStruct<double> specialization's instantiation
+    // because of T::value_type is not a valid type
+    // there will be a syntax error.
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <typename T>
+  T func(T x)
+  {
+    return x * x;
+  }
+
+  template <typename T>
+  T func_2(T x)
+  {
+    using type = typename T::value_type;
+    return x * x;
+  }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    decltype(func(12)) x = 5; 
+    // partial instantiation
+
+    // for compiler to deduce x's type it needs to know 
+    // "func(12)" expression's type
+    // to know "func(12)" expression's type it needs to know 
+    // T's type in function template "func"
+    // because of it can understand T's type from function argument
+    // and function's return type  
+    // it will not need to instantiate whole "func" function template
+
+    // ------------------------------------------------
+
+    decltype(func_2(12)) y = 5;   // VALID
+
+    // if "func_2" function template is completely instantiated
+    // "using type = typename T::value_type;" statement inside 
+    // must generate a syntax error.
+    // but because of "func_2" function template is partially
+    // instantiated, it will not be a syntax error.
+    // (Only the signature should be generated)
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+                --------------------------------
+                | point of instantiation (POI) |
+                --------------------------------
+*/
+
+/*
+  template <typename T>
+  void func(T x)
+  {
+    bar(x);
+  }
+
+  class AClass {};
+
+  void bar(AClass)
+  {
+    std::cout << "bar(AClass)\n";
+  }
+
+  void bar(int)
+  {
+    std::cout << "bar(int)\n";
+  }
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    func(10); // syntax error
+    // error: 'bar' was not declared in this scope, 
+    // and no declarations were found by argument-dependent lookup 
+    // at the point of instantiation
+
+    // unqualified lookup for "bar" identifier  : NOT FOUND
+
+    // ------------------------------------------------
+
+    AClass ax;
+    func(ax); // VALID
+    // unqualified lookup for "bar" identifier  : NOT FOUND
+    // (in POI) ADL for "bar" identifier        : FOUND
+    // because of "AClass" definition is in global namespace scope
+    // whole global namespace scope will be searched and "bar"
+    // identifier will be found. NO syntax error
+
+    // Two phase lookup
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+                  --------------------------
+                  | explicit instantiation |
+                  --------------------------
+*/
+
+/*
+  template <typename T>
+  void func(T){}
+
+  template void func<int>(int);  
+  // explicit instantiation directive
+
+  // compiler has already generate func<int> specialization 
+  // in this line because of explicit instantiation directive.
+*/
+
+/*
+  template <typename T>
+  void func(T){}
+
+  template void func<int>(int);  
+  template void func<>(int);
+  template void func(int);
+  // Those 3 lines are equivalent.
+*/
+
+/*
+  // explicit instantiation can also be done inside a namespace
+
+  namespace ASpace {
+    template <typename T>
+    class Myclass {};
+
+    template class Myclass<int>;
+  }
+*/
+
+/*
+  // "header_1.h"
+  // --------------
+
+  namespace ASpace {
+
+    template <typename T>
+    class Myclass {
+      void func(){}
+    };
+
+    template class Myclass<int>;
+  }
+
+  // "source.cpp"
+  // --------------
+  // #include "header_1.h"
+
+  template class ASpace::Myclass<double>;
+  // explicit instantiation directive  
+  // for Myclass<double> specialization
+*/
+
+/*
+  template <typename T>
+  class Myclass {
+    void func(){}
+  };
+
+  template void Myclass<int>::func(); 
+  // explicit instantiation directive 
+  // for Myclass<int> specialization's func member function
+*/
+
+/*
+  // --------------------------------------------
+
+  // ==== file.hpp
+  // --------------
+  template <typename T>
+  void foo(); 
+  // only declaration no definition (prevents instantiation)
+
+  // --------------------------------------------
+
+  // ==== file.tpp
+  // #include "file.hpp"
+
+  template <typename T>
+  void foo(){}
+  // "foo" template function's definition
+
+  // --------------------------------------------
+
+  // ==== file.cpp
+  // #include "file.tpp"
+
+  template void foo<int>(); 
+  // explicit instantiation directive
+  // for foo<int> specialization
+
+  // --------------------------------------------
+*/
+
+/*
+              -------------------------------
+              | extern template declaration |
+              -------------------------------
+*/
+
+/*
+  // -------------------------------------------
+
+  // ==== tpl_func.h
+  // ---------------
+
+  template <typename T>
+  void tpl_func(){};   
+  // template function definition
+
+  // -------------------------------------------
+
+  // ==== file_1.cpp
+  // ---------------
+  // #include "tpl_func.h"
+
+  void some_function_in_file1()
+  {
+    tpl_func<int>();  
+    // "tpl_func" function template instantiation is needed
+  }
+
+  // -------------------------------------------
+
+  // ==== file_2.cpp
+  // ---------------
+  // #include "tpl_func.h"
+
+  void some_function_in_file2()
+  {
+    tpl_func<int>();  
+    // "tpl_func" function template instantiation is needed
+  }
+
+  // -------------------------------------------
+
+  // file_1.o
+  // 000000000  W void tpl_func<int>()
+  // 000000000  T some_function_in_file1()
+
+  // file_2.o
+  // 000000000  W void tpl_func<int>()
+  // 000000000  T some_function_in_file2()
+
+
+  // in both object file (file_1.o and file_2.o)
+  // "tpl_func<int>" specialization is instantiated.
+
+  // -------------------------------------------
+*/
+
+/*
+  // -------------------------------------------
+
+  // ==== tpl_func.h
+  // ---------------
+
+  template <typename T>
+  void tpl_func(){};   
+  // template function definition
+
+  // -------------------------------------------
+
+  // ==== file_1.cpp
+  // ---------------
+  // #include "tpl_func.h"
+
+  void some_function_in_file1()
+  {
+    tpl_func<int>();  
+    // "tpl_func" function template instantiation is needed
+  }
+
+  // -------------------------------------------
+
+  // ==== file_2.cpp
+  // ---------------
+  // #include "tpl_func.h"
+
+  extern template void tpl_func<int>();
+  // extern template declaration
+  // for tpl_func<int> specialization
+
+  void some_function_in_file2()
+  {
+    tpl_func<int>();  
+  }
+
+  // extern template declaration is a way to tell compiler to
+  // NOT INSTANTIATE "void tpl_func<int>()" function 
+  // that have this template ID("tpl_func<int>" specialization)
+  // for this module.
+
+  // in some other module, compiler will compile 
+  // "tpl_func<int>" specialization's code.
+
+  // -------------------------------------------
+
+  // file_1.o
+  // 000000000  W void tpl_func<int>()
+  // 000000000  T some_function_in_file1()
+
+  // file_2.o
+  // 000000000  T some_function_in_file2()
+
+  // only in file_1.o "tpl_func<int>" 
+  // specialization is instantiated.
+  // becuase of extern template declaration in file_2.cpp
+  // "tpl_func<int>" specialization is not instantiated.
+
+  // -------------------------------------------
+*/
+
+/*
+  -----------------------------------------------------------
+
+  - bir başlık dosyasına template yerleştirilir.
+
+  - eğer o template'ın belirli specializationlarının, 
+    hangi kaynak dosyalarında kullanılacağı başlangıçta belli ise,
+    kaynak dosyalarının hepsine(1 tanesi hariç) 
+    "extern template declaration" yerleştirilir.
+    (tabii ki bu durumda, extern template declaration'ın başlık 
+    dosyasına yerleştirilmesi gerekir.)
+
+  - 1 adet kaynak dosyasına ise, explicit instantiation directive 
+    yerleştirilir.
+
+  dolayısıyla...
+  - başlık dosyasını include eden kaynak dosyaları 
+    extern template declaration'ı da include etmiş olacaklar.
+  - ayrı bir kaynak dosyasına ise, explicit instantiation 
+    directive yerleştirilmiş olacak.
+
+  Dezavantaj
+  -----------
+  - derleyicinin optimizasyon yapma kabiliyeti düştü.
+  - 1 adet kaynak dosyasında fonksiyon inline expansion'a 
+    uğrar(fonksiyona çağrı yapılmaz) ise derlenmiş kodda 
+    fonksiyonun tanımı olmayacak ve başlık dosyasını include 
+    etmiş olan diğer kaynak dosyalarında bu fonksiyonun
+    kullanılması durumu Link hatasına sebep olacaktır.
+    Dolayısıyla bu kaynak dosyasında fonksiyonun inline 
+    expand edilmemesi gerekiyor ve standart değil!!
+
+  -----------------------------------------------------------
+*/
+
+/*
+  // -------------------------------------------
+
+  // ==== tpl_func.h
+  // ---------------
+
+  template <typename T>
+  void tpl_func(){};   
+  // template function definition
+
+  extern template void tpl_func<int>();
+  // extern template declaration
+
+  // -------------------------------------------
+
+  // ==== tpl_func.cpp
+  // -----------------
+  // #include "tpl_func.h"
+
+  template void tpl_func<int>();  
+  // explicit instantiation directive
+
+  // -------------------------------------------
+
+  // ==== file_1.cpp
+  // ---------------
+  // #include "tpl_func.h"
+
+  void some_function_in_file1()
+  {
+    tpl_func<int>();  
+  }
+
+  // -------------------------------------------
+
+  // ==== file_2.cpp
+  // ---------------
+  // #include "tpl_func.h"
+
+  void some_function_in_file2()
+  {
+    tpl_func<int>();  
+  }
+
+  // -------------------------------------------
+
+  // instantiation of "tpl_func<int>" specialization
+  // is generated in tpl_func.o object file.
+  // and in file_1.o and file_2.o object files
+  // "tpl_func<int>" specialization is not instantiated.
+
+  // -------------------------------------------
+*/
+
+/*
+  // -------------------------------------------
+
+  // ==== third_party_lib.h
+  // ---------------
+
+  template <typename T>
+  void tpl_func()
+  {
+    // function implementation
+  };   
+  // template function definition
+
+  // -------------------------------------------
+
+  // ==== tpl_func.h
+  // ---------------
+  // #include "third_party_lib.h"
+
+  extern template void tpl_func<int>();
+  // extern template declaration
+
+  // -------------------------------------------
+
+  // ==== tpl_func.cpp
+  // -----------------
+  // #include "tpl_func.h"
+
+  template void tpl_func<int>();  
+  // explicit instantiation directive
+
+  // -------------------------------------------
+
+  // ==== file_1.cpp
+  // ---------------
+  // #include "tpl_func.h"
+
+  void some_function_in_file1()
+  {
+    tpl_func<int>();  
+  }
+
+  // -------------------------------------------
+
+  // ==== file_2.cpp
+  // ---------------
+  // #include "tpl_func.h"
+
+  void some_function_in_file2()
+  {
+    tpl_func<int>();  
+  }
+
+  // -------------------------------------------
+*/
+
+/*
+  // extern template declaration can also be used 
+  // for class templates 
+
+  // -------------------------------------------
+
+  // ==== myclass.h
+  // ---------------
+
+  template <typename T>
+  class Myclass {};  
+  // class template implementation
+
+  // -------------------------------------------
+
+  // ==== file_1.cpp
+  // ---------------
+  // #include "myclass.h"
+
+  void some_function_in_file1()
+  {
+    Myclass<int> a1;  
+  }
+
+  // -------------------------------------------
+
+  // ==== file_2.cpp
+  // ---------------
+  // #include "myclass.h"
+
+  extern template class Myclass<int>;
+  // extern template declaration
+
+  void some_function_in_file2()
+  {
+    Myclass<int> a1;   
+  }
+
+  // -------------------------------------------
+*/
+
+/*
+  namespace std {
+    template <typename charT, 
+              typename traits = char_traits<charT>,
+              typename Allocator = allocator<charT>>
+    class basic_string {};
+
+    extern template class basic_string<char>;
+    extern template class basic_string<wchar_t>;
+  }
+*/
+
+/*
+          -----------------------------------------------
+          | CRTP (Curiously Recurring Template Pattern) |
+          -----------------------------------------------
+*/
+
+/*
+  template <typename T>
+  class Base {};
+
+  // sınıf şablonundan bir specialization oluştururken 
+  // template argümanı olan tür, kalıtım yoluyla elde edilir.
+
+  class Der : public Base<Der> {};
+
+  // türemiş sınıflar taban sınıfın interface'ini kullanabilir.
+*/
+
+/*
+  // regular inheritance
+
+  class Counter {
+  private:
+    inline static std::size_t  ms_no_of_live_objects{};
+    inline static std::size_t  ms_no_of_created_objects{};
+  public:
+    Counter()
+    {
+      ++ms_no_of_live_objects;
+      ++ms_no_of_created_objects;
+    }
+    ~Counter()
+    {
+      --ms_no_of_live_objects;
+    }
+
+    static std::size_t get_live_object_count()
+    {
+      return ms_no_of_live_objects;
+    }
+    static std::size_t get_created_object_count()
+    {
+      return ms_no_of_created_objects;
+    }
+  };
+
+  class AClass : public Counter {};
+  class BClass : public Counter {};
+
+  int main()
+  {
+    AClass ax1, ax2;
+
+    {
+      AClass ax3, ax4, ax5, ax6;
+    }
+
+    std::cout << "live object count = " 
+              << AClass::get_live_object_count() << '\n';
+
+    std::cout << "created object count = "
+              << AClass::get_created_object_count() << '\n';
+
+    // output -> 
+    // live object count = 2
+    // created object count = 6
+
+    BClass bx1;
+
+    {
+      BClass bx3, bx4;
+    }
+
+    std::cout << "live object count = " 
+              << BClass::get_live_object_count() << '\n';
+
+    std::cout << "created object count = "
+              << BClass::get_created_object_count() << '\n';
+    
+    // output ->
+    //  live object count = 3
+    //  created object count = 9
+  }
+*/
+
+/*
+  // CRTP technique
+
+  #include <cstddef>
+
+  // CRTP Base class
+  template <typename T>
+  class Counter {
+  private:
+    inline static std::size_t  ms_no_of_live_objects{};
+    inline static std::size_t  ms_no_of_created_objects{};
+  public:
+    Counter()
+    {
+      ++ms_no_of_live_objects;
+      ++ms_no_of_created_objects;
+    }
+    ~Counter()
+    {
+      --ms_no_of_live_objects;
+    }
+
+    static std::size_t get_live_object_count()
+    {
+      return ms_no_of_live_objects;
+    }
+    static std::size_t get_created_object_count()
+    {
+      return ms_no_of_created_objects;
+    }
+  };
+
+  class AClass : Counter<AClass> {
+  public:
+    using Counter<AClass>::get_live_object_count;
+    using Counter<AClass>::get_created_object_count;
+    // when private inheritance is used,
+    // we can inject Base class's member functions
+    // into the derived class's scope by using, using declaration.
+  };
+
+  class BClass : Counter<BClass> {
+  public:
+    using Counter<BClass>::get_live_object_count;
+    using Counter<BClass>::get_created_object_count;
+    // when private inheritance is used,
+    // we can inject Base class's member functions
+    // into the derived class's scope by using, using declaration.
+  };
+
+  int main()
+  {
+    // bu seneryodaki CRTP, her sınıf ayrı bir specialization
+    // olduğu için, her sınıfın static veri elemanları farklıdır.
+
+    AClass ax1, ax2;
+
+    {
+      AClass ax3, ax4, ax5, ax6;
+    }
+
+    std::cout << "live object count = " 
+              << AClass::get_live_object_count() << '\n';
+
+    std::cout << "created object count = "
+              << AClass::get_created_object_count() << '\n';
+
+    // output -> 
+    // live object count = 2
+    // created object count = 6
+
+    BClass bx1;
+
+    {
+      BClass bx3, bx4;
+    }
+
+    std::cout << "live object count = " 
+              << BClass::get_live_object_count() << '\n';
+
+    std::cout << "created object count = "
+              << BClass::get_created_object_count() << '\n';
+    
+    // output ->
+    //  live object count = 1
+    //  created object count = 3
+  }
+*/
+
+/*
+  // if purpose is using different static data members,
+  // decltype([]{}) technique can also be used instead of CRTP
+
+  #include <cstddef>
+
+  template <typename T = decltype([]{})>
+  class Counter {
+  private:
+    inline static std::size_t  ms_no_of_live_objects{};
+    inline static std::size_t  ms_no_of_created_objects{};
+  public:
+    Counter()
+    {
+      ++ms_no_of_live_objects;
+      ++ms_no_of_created_objects;
+    }
+    ~Counter()
+    {
+      --ms_no_of_live_objects;
+    }
+
+    static std::size_t get_live_object_count()
+    {
+      return ms_no_of_live_objects;
+    }
+    static std::size_t get_created_object_count()
+    {
+      return ms_no_of_created_objects;
+    }
+  };
+
+  class AClass : public Counter<> {};
+  class BClass : public Counter<> {};
+
+  int main()
+  {
+    AClass ax1, ax2;
+
+    {
+      AClass ax3, ax4, ax5, ax6;
+    }
+
+    std::cout << "live object count = " 
+              << AClass::get_live_object_count() << '\n';
+
+    std::cout << "created object count = "
+              << AClass::get_created_object_count() << '\n';
+
+    // output -> 
+    // live object count = 2
+    // created object count = 6
+
+    BClass bx1;
+
+    {
+      BClass bx3, bx4;
+    }
+
+    std::cout << "live object count = " 
+              << BClass::get_live_object_count() << '\n';
+
+    std::cout << "created object count = "
+              << BClass::get_created_object_count() << '\n';
+    
+    // output ->
+    //  live object count = 1
+    //  created object count = 3
+  }
+*/
+
+/*
+  // if purpose is using different static data members,
+  // non type template parameter can also be used instead of CRTP
+  // C++20
+
+  #include <cstddef>
+
+  template <auto = []{}>
+  class Counter {
+  private:
+    inline static std::size_t  ms_no_of_live_objects{};
+    inline static std::size_t  ms_no_of_created_objects{};
+  public:
+    Counter()
+    {
+      ++ms_no_of_live_objects;
+      ++ms_no_of_created_objects;
+    }
+    ~Counter()
+    {
+      --ms_no_of_live_objects;
+    }
+
+    static std::size_t get_live_object_count()
+    {
+      return ms_no_of_live_objects;
+    }
+    static std::size_t get_created_object_count()
+    {
+      return ms_no_of_created_objects;
+    }
+  };
+
+  class AClass : public Counter<> {};
+  class BClass : public Counter<> {};
+
+  int main()
+  {
+    AClass ax1, ax2;
+
+    {
+      AClass ax3, ax4, ax5, ax6;
+    }
+
+    std::cout << "live object count = " 
+              << AClass::get_live_object_count() << '\n';
+
+    std::cout << "created object count = "
+              << AClass::get_created_object_count() << '\n';
+
+    // output -> 
+    // live object count = 2
+    // created object count = 6
+
+    BClass bx1;
+
+    {
+      BClass bx3, bx4;
+    }
+
+    std::cout << "live object count = " 
+              << BClass::get_live_object_count() << '\n';
+
+    std::cout << "created object count = "
+              << BClass::get_created_object_count() << '\n';
+    
+    // output ->
+    //  live object count = 1
+    //  created object count = 3
   }
 */

@@ -166,6 +166,12 @@
       - binary fold
     - fold expressions idioms
   - static if (C++17)
+  - template instantiation
+    - point of instantiation (POI)
+    - explicit instantiation
+      - explicit instantiation directive
+      - extern template declaration
+  - CRTP (Curiously Recurring Template Pattern)
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
