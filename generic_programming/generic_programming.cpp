@@ -7424,7 +7424,7 @@
   #include <cstddef>
 
   // CRTP Base class
-  template <typename T>
+  template <typename Der>
   class Counter {
   private:
     inline static std::size_t  ms_no_of_live_objects{};
@@ -7647,5 +7647,994 @@
     // output ->
     //  live object count = 1
     //  created object count = 3
+  }
+*/
+
+/*
+  template <typename Der>
+  class Base {};
+
+  class AClass : public Base<AClass> {};
+  class BClass : public Base<AClass> {};    // -----> Problem
+
+  // problem using Base<AClass> instead of Base<BClass>
+
+  int main()
+  {
+    AClass ax;  // VALID
+    BClass bx;  // VALID
+  }
+*/
+
+/*
+  template <typename Der>
+  class Base {
+  private:
+    friend Der;
+    Base() = default;
+  };
+
+  class AClass : public Base<AClass> {};
+  class BClass : public Base<AClass> {};    // -----> Problem
+
+  int main()
+  {
+    // ------------------------------------------------
+
+    AClass ax;  // VALID
+    // because of AClass(Der) is friend declared inside 
+    // Base class template, AClass(Der) can access Base 
+    // classes default constructor in its private section.
+
+    // ------------------------------------------------
+
+    BClass bx;  // syntax error
+    // error: use of deleted function 'BClass::BClass()'
+    // error: 'constexpr Base<Der>::Base() [with Der = AClass]' 
+    // is private within this context
+
+    // because of <AClass> is used as template argument
+    // BClass itself is not declared as friend in Base class
+    // so BClass can not access Base classes default constructor
+    // which is in its private section.
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  template <typename Der>
+  class Base {
+  public:
+    void func_interface()
+    {
+      static_cast<Der*>(this)->func_impl();
+    }
+
+    static void func_static_interface()
+    {
+      Der::func_static_impl();
+    }
+
+    void func_impl()
+    {
+      std::cout << "Base::func_impl()\n";
+    }
+
+    static void func_static_impl()
+    {
+      std::cout << "Base::func_static_impl()\n";
+    }
+  };
+
+  class Der_AClass : public Base<Der_AClass> {
+  public:
+    void func_impl()
+    {
+      std::cout << "Der_AClass::func_impl()\n";
+    }
+
+    static void func_static_impl()
+    {
+      std::cout << "Der_AClass::func_static_impl()\n";
+    }
+  };
+
+  class Der_BClass : public Base<Der_BClass> {
+  public:
+    void func_impl()
+    {
+      std::cout << "Der_BClass::func_impl()\n";
+    }
+  };
+
+  int main()
+  {
+    Der_AClass ax;
+
+    ax.func_interface();  
+    // output -> Der_AClass::func_impl()
+
+    ax.func_static_interface();
+    // output -> Der_AClass::func_static_impl()
+
+    Der_BClass bx;
+    bx.func_interface();
+    // output -> Der_BClass::func_impl()
+
+    bx.func_static_interface();
+    // output -> Base::func_static_impl()
+  }
+*/
+
+/*
+  // türemiş sınıfların "print" fonksiyonun sahip olduklarını
+  // varsayarak, türemiş sınıflara, print fonksiyonunu N kere
+  // çağıracak bir interface enjeckte etmek istiyoruz.
+
+  #include <cstddef>
+  #include <string>
+
+  template <typename Printable>
+  struct PrintNTimes {
+    void print_N(std::size_t N) const
+    {
+      while (N--)
+        static_cast<const Printable*>(this)->print();
+        // static_cast<const Printable&>(*this).print();
+    }
+  };
+
+  class Person : public PrintNTimes<Person> {
+  private:
+    std::string m_name;
+    std::string m_surname;
+
+  public:
+    Person() = default;
+    Person(const char* p_name, const char* p_surname)
+      : m_name{ p_name }, m_surname{ p_surname } {}
+
+    void print() const
+    {
+      std::cout << m_name << ' ' << m_surname << '\n';
+    }
+  };
+
+  int main()
+  {
+    Person p1{ "hello", "world" };
+    p1.print_N(5);
+    // output ->
+    //  hello world
+    //  hello world
+    //  hello world
+    //  hello world
+    //  hello world
+  }
+*/
+
+/*
+  // outdated example but expressing CRTP well
+
+  // Base class injected "operator==" and "operator!=" functions
+  // to Derived classes interface.
+
+  #include <string>
+
+  template <typename Der>
+  struct Equality {
+    const Der& derived() const 
+    {
+      return static_cast<const Der&>(*this);
+    }
+
+    // hidden friend operator== function
+    friend bool operator==(const Equality& lhs, const Equality& rhs)
+    {
+      return  not(lhs.derived() < rhs.derived()) and
+              not(rhs.derived() < lhs.derived());     
+    }
+    // hidden friend operator!= function
+    friend bool operator!=(const Equality& lhs, const Equality& rhs)
+    {
+      return not(lhs == rhs);
+    }
+  };
+
+  class Person : public Equality<Person> {
+  private:
+    std::string m_name;
+
+  public:
+    Person(const std::string& str) : m_name{ str } {}
+
+    bool operator<(const Person& other) const
+    {
+      return m_name < other.m_name;
+    }
+  };
+
+  int main()
+  {
+    std::boolalpha(std::cout);
+
+    Person p1{ "hello" };
+    Person p2{ "world" };
+    Person p3{ "hello" };
+
+    std::cout << (p1 == p2) << '\n';  // output -> false
+    std::cout << (p1 != p2) << '\n';  // output -> true
+    std::cout << (p1 == p3) << '\n';  // output -> true
+  }
+*/
+
+/*
+  // derived class itself is also a class template
+
+  #include <iterator>   // std::prev, std::next, std::distance
+  #include <memory>     // std::make_unique, std::unique_ptr
+
+  template <typename Der>
+  class Container {
+  private:
+    Der& derived()
+    { 
+      return static_cast<Der&>(*this); 
+    }
+    const Der& derived() const 
+    { 
+      return static_cast<const Der&>(*this); 
+    }
+  public:
+    decltype(auto) front()
+    {
+      return *derived().begin();
+    }
+    decltype(auto) back()
+    {
+      return *std::prev(derived().end());
+    }
+    decltype(auto) size() const
+    {
+      return std::distance(derived().begin(), derived().end());
+    }
+    decltype(auto) operator[](std::size_t idx)
+    {
+      return *std::next(derived().begin(), idx);
+    }
+  };
+
+  template <typename T>
+  class DynArray : public Container<DynArray<T>> {
+  private:
+    std::size_t m_size;
+    std::unique_ptr<T[]> mp_data;
+
+  public:
+    DynArray(std::size_t N) 
+        : m_size{ N }, mp_data{ std::make_unique<T[]>(m_size) } {} 
+    
+    T* begin() { return mp_data.get(); }
+    const T* begin() const { return mp_data.get(); }
+    T* end() { return mp_data.get() + m_size; }
+    const T* end() const { return mp_data.get() + m_size; }
+  };
+
+  int main()
+  {
+    DynArray<int> d_arr(10);
+
+    d_arr.front() = 11;
+    d_arr[2] = 22;
+    d_arr.back() = 33;
+
+    for (auto elem : d_arr)
+      std::cout << elem << ' ';
+    // output -> 11 0 22 0 0 0 0 0 0 33
+
+    std::cout << '\n';
+    std::cout << "d_arr.size() = " << d_arr.size() << '\n';
+    // output -> d_arr.size() = 10
+  }
+*/
+
+/*
+  // CRTP Base singleton class
+
+  #include <memory>   // std::unique_ptr
+  #include <mutex>    // std::once_flag, std::call_once
+
+  template <typename TDerived>
+  class Singleton {
+  private:
+    inline static std::unique_ptr<TDerived> msp_instance{};
+    inline static std::once_flag            ms_once{};
+
+  protected:
+    Singleton() {}
+
+  public:
+    ~Singleton() {}
+    Singleton(const Singleton&) = delete;
+    Singleton& operator=(const Singleton&) = delete;
+
+    static TDerived& get_instance()
+    {
+      std::call_once(
+        Singleton::ms_once, 
+        [](){ Singleton::msp_instance.reset(new TDerived());});
+
+      return *msp_instance;
+    }
+  };
+
+  class AClass : public Singleton<AClass> {
+  public:
+    AClass()
+    {
+      std::cout << "AClass::AClass()\n";
+    }
+
+    ~AClass()
+    {
+      std::cout << "AClass::~AClass()\n";
+    }
+
+    void func()
+    {
+      std::cout << "AClass::func()\n";
+    }
+  };
+
+  int main()
+  {
+    std::cout << "[0] - main started\n";
+
+    AClass::get_instance().func();
+    AClass::get_instance().func();
+
+    std::cout << "[1] - main finished\n";
+
+    // output ->
+    //  [0] - main started
+    //  AClass::AClass()
+    //  AClass::func()
+    //  AClass::func()
+    //  [1] - main finished
+    //  AClass::~AClass()
+  }
+*/
+
+/*
+  #include <cstdio>   // std::fprintf, std::fopen, std::fclose
+  #include <stdexcept> // std::runtime_error
+
+  template <class Der>
+  class Writer {
+  public:
+    void write(const char* str) const
+    {
+      static_cast<const Der*>(this)->write_impl(str);
+    }
+  };
+
+  class FileWriter : public Writer<FileWriter> {
+  private:
+    FILE* mp_file;
+
+    friend class Writer<FileWriter>;
+
+    void write_impl(const char* str) const
+    {
+      std::fprintf(mp_file, "%s\n", str);
+    }
+
+  public:
+
+    FileWriter(const char* p_filename) 
+      : mp_file{ std::fopen(p_filename, "w") }
+    {
+      using namespace std::literals;
+
+      if(!mp_file)
+        throw std::runtime_error{ p_filename + "couldn't created"s };
+    }
+
+    ~FileWriter()
+    {
+      std::fclose(mp_file);
+    }
+  };
+
+  class ConsoleWriter : public Writer<ConsoleWriter> {
+  private:
+    friend class Writer<ConsoleWriter>;
+
+    void write_impl(const char* str) const
+    {
+      std::printf("%s\n", str);
+    }
+  };
+
+  int main()
+  {
+    ConsoleWriter cw;
+    FileWriter fw{ "test.txt" };
+
+    cw.write("hello world");
+    fw.write("hello world");
+  }
+*/
+
+/*
+  // Using more than one CRTP base class
+
+  template <typename Der>
+  class A {
+  public:
+    void func_A()
+    {
+      static_cast<Der*>(this)->func_1();
+    }
+  };
+
+  template <typename Der>
+  class B {
+  public:
+    void func_B()
+    {
+      static_cast<Der*>(this)->func_2();
+    }
+  };
+
+  template <typename Der>
+  class C {
+  public:
+    void func_C()
+    {
+      static_cast<Der*>(this)->func_3();
+    }
+  };
+
+  class Myclass : public A<Myclass>, 
+                  public B<Myclass>, 
+                  public C<Myclass> {
+  public:
+    void func_1()
+    {
+      std::cout << "Myclass::func_1()\n";
+    }             
+    void func_2()
+    {
+      std::cout << "Myclass::func_2()\n";
+    }
+    void func_3()
+    {
+      std::cout << "Myclass::func_3()\n";
+    }
+  };
+
+  int main()
+  {
+    Myclass m1;
+
+    m1.func_A();  // output -> Myclass::func_1()
+    m1.func_B();  // output -> Myclass::func_2()
+    m1.func_C();  // output -> Myclass::func_3()
+  }
+*/
+
+/*
+  // making derived class itself as a template 
+
+  #include <string>
+
+  template <typename Der>
+  struct MakeDouble {
+    Der make_it_double() const
+    {
+      const auto& self = static_cast<const Der&>(*this);
+      return self + self;
+    }
+  };
+
+  template <typename Der>
+  struct MakeTriple {
+    Der make_it_triple() const
+    {
+      const auto& self = static_cast<const Der&>(*this);
+      return self + self + self;
+    }
+  };
+
+  template <typename T>
+  class Val : public MakeDouble<Val<T>>, public MakeTriple<Val<T>> {
+  private:
+    T m_val;
+
+  public:
+    Val(const T& val) : m_val{ val } {}
+
+    Val operator+(const Val& other) const
+    {
+      return m_val + other.m_val;
+    }
+
+    void print() const 
+    {
+      std::cout << '[' <<m_val << "]\n";
+    }
+  };
+
+  int main()
+  {
+    using namespace std::literals;
+
+    Val<int> v1 = 15, v2 = 22;
+    Val<std::string> v3 = "hello "s;
+
+    v1.make_it_double().print();  // output -> [30]
+    v2.make_it_triple().print();  // output -> [66]
+    v3.make_it_double().print();  // output -> [hello hello ]
+  }
+*/
+
+/*
+  template <typename Der>
+  class AClass {
+  public:
+    void func_A()
+    {
+      std::cout << "AClass::func_A()\n";
+      static_cast<Der*>(this)->foo_1();
+    }
+  };
+
+  template <typename Der>
+  class BClass {
+  public:
+    void func_B()
+    {
+      std::cout << "BClass::func_B()\n";
+      static_cast<Der*>(this)->foo_2();
+    }
+  };
+
+  template <typename Der>
+  class CClass {
+  public:
+    void func_C()
+    {
+      std::cout << "CClass::func_C()\n";
+      static_cast<Der*>(this)->foo_3();
+    }
+  };
+
+  // template template parameter pack
+  template <template <typename> typename... Bases>
+  class Myclass : public Bases<Myclass<Bases...>>... {
+  public:
+    void foo_1()
+    {
+      std::cout << "Myclass::foo_1()\n";
+    }
+
+    void foo_2()
+    {
+      std::cout << "Myclass::foo_2()\n";
+    }
+
+    void foo_3()
+    {
+      std::cout << "Myclass::foo_3()\n";
+    }
+  };
+
+  // class Myclass 
+  //    :   public AClass<Myclass<AClass, BClass, CClass>>, 
+  //        public BClass<Myclass<AClass, BClass, CClass>>,
+  //        public CClass<Myclass<AClass, BClass, CClass>>
+
+  int main()
+  {
+    Myclass<AClass, BClass, CClass> m1;
+
+    m1.func_A();  
+    // output ->
+    //  AClass::func_A()
+    //  Myclass::foo_1()
+
+    m1.func_B();
+    // output ->
+    //  BClass::func_B()
+    //  Myclass::foo_2()
+
+    m1.func_C();
+    // output -> 
+    //  CClass::func_C()
+    //  Myclass::foo_3()
+  }
+*/
+
+/*
+  #include <ostream>
+
+  class Printer {
+  private:
+    std::ostream& m_ostream;
+
+  public:
+    Printer(std::ostream& param_os) : m_ostream{ param_os } {}
+
+    template <typename T>
+    Printer& print(const T& t)
+    {
+      m_ostream << t;
+      return *this;
+    }
+
+    template <typename T>
+    Printer& print_line(const T& t)
+    {
+      m_ostream << t << '\n';
+      return *this;
+    }
+  };
+
+  int main()
+  {
+    using namespace std;
+
+    Printer(cout).print("hello ").print_line("world").print_line(10);
+    // output ->
+    //  hello world
+    //  10
+  }
+*/
+
+/*
+  #include <ostream>
+
+  class Printer {
+  private:
+    std::ostream& m_ostream;
+
+  public:
+    Printer(std::ostream& param_os) : m_ostream{ param_os } {}
+
+    template <typename T>
+    Printer& print(const T& t)
+    {
+      m_ostream << t;
+      return *this;
+    }
+
+    template <typename T>
+    Printer& print_line(const T& t)
+    {
+      m_ostream << t << '\n';
+      return *this;
+    }
+  };
+
+  class ColorPrinter : public Printer {
+  public:
+    ColorPrinter() : Printer{ std::cout } {}
+  
+    ColorPrinter& set_color(int color)
+    {
+      std::cout << "color set\n";
+      return *this;
+    }
+  };
+
+  int main()
+  {
+    using namespace std;
+
+    ColorPrinter().print("hello ").set_color(12).print_line("world");
+    // syntax error
+    // error: 'class Printer' has no member named 'set_color'
+
+    // "print" function is returning Printer& which 
+    // does not have "set_color" member function.
+  }
+*/
+
+/*
+  // CRTP solution
+
+  #include <ostream>
+
+  template <typename DerPrinter>
+  class Printer {
+  private:
+    std::ostream& m_ostream;
+
+  public:
+    Printer(std::ostream& param_os) : m_ostream{ param_os } {}
+
+    template <typename T>
+    DerPrinter& print(const T& t)
+    {
+      m_ostream << t;
+      return static_cast<DerPrinter&>(*this);
+    }
+
+    template <typename T>
+    DerPrinter& print_line(const T& t)
+    {
+      m_ostream << t << '\n';
+      return static_cast<DerPrinter&>(*this);
+    }
+  };
+
+  class ColorPrinter : public Printer<ColorPrinter> {
+  public:
+    ColorPrinter() : Printer{ std::cout } {}
+  
+    ColorPrinter& set_color(int color)
+    {
+      std::cout << "color set\n";
+      return *this;
+    }
+  };
+
+  int main()
+  {
+    using namespace std;
+
+    ColorPrinter().print("hello ").set_color(12).print_line("world");
+    // output ->
+    //  hello color set
+    //  world
+  }
+*/
+
+/*
+  - to convert virtual dispatch mechanism to static polymorphism
+    CRTP base class will be used.
+*/
+
+/*
+  // CRTP base class
+  template <typename Der>
+  class Animal {
+  public:
+    void sound()
+    {
+      static_cast<Der*>(this)->sound_impl();
+    }
+  };
+
+  class Cat : public Animal<Cat> {
+  public:
+    void sound_impl()
+    {
+      std::cout << "meow\n";
+    }
+  };
+
+  class Dog : public Animal<Dog> {
+  public:
+    void sound_impl()
+    {
+      std::cout << "woof\n";
+    }
+  };
+
+  template <typename T>
+  void pet_animal(Animal<T>& a)
+  {
+    a.sound();
+  }
+  
+  int main()
+  {
+    Cat c1;
+    Dog d1;
+
+    // -------------------------------------------
+
+    c1.sound();  // output -> meow
+    d1.sound();  // output -> woof
+
+    // -------------------------------------------
+
+    pet_animal(c1);  // output -> meow
+    pet_animal(d1);  // output -> woof
+
+    // -------------------------------------------
+  }
+*/
+
+/*
+                      -----------------
+                      | Mixin Pattern |
+                      -----------------
+*/
+
+/*
+  - farklı farklı interface'lere sahip olan sınıfların
+    kullanıcı kod tarafından birleştirilmesi ile 
+    istenilen özelliklerin bir araya getirilmesi.
+
+  - CRTP'ye benziyor ama oluşturulma biçimi farklı.
+*/
+
+/*
+  template <typename Base>
+  class Skill_A : public Base {
+  public:
+    void func_A()
+    {
+      std::cout << "Skill_A::func_A\n";
+      Base::foo_A();
+    }
+  };
+
+  template <typename Base>
+  class Skill_B : public Base {
+  public:
+    void func_B()
+    {
+      std::cout << "Skill_B::func_B\n";
+      Base::foo_B();
+    }
+  };
+
+  template <typename Base>
+  class Skill_C : public Base {
+  public:
+    void func_C()
+    {
+      std::cout << "Skill_C::func_C\n";
+      Base::foo_C();
+    }
+  };
+
+  // Derived classes are invoking Base classes member functions.
+
+  class Myclass {
+  public:
+    void foo_A()
+    {
+      std::cout << "Myclass::foo_A\n";
+    }
+
+    void foo_B()
+    {
+      std::cout << "Myclass::foo_B\n";
+    }
+
+    void foo_C()
+    {
+      std::cout << "Myclass::foo_C\n";
+    }
+  };
+
+  int main()
+  {
+    // -------------------------------------------
+
+    Skill_A<Myclass>{}.func_A();
+    // output ->
+    //  Skill_A::func_A
+    //  Myclass::foo_A
+
+    Skill_B<Myclass>{}.func_B();
+    // output ->
+    //  Skill_B::func_B
+    //  Myclass::foo_B
+
+    Skill_C<Myclass>{}.func_C();
+    // output ->
+    //  Skill_C::func_C
+    //  Myclass::foo_C
+
+    // -------------------------------------------
+
+    using Myclass_A = Skill_A<Myclass>;
+    using Myclass_B = Skill_B<Myclass>;
+    using Myclass_C = Skill_C<Myclass>;
+
+    using Myclass_AB = Skill_B<Myclass_A>;
+    using Myclass_ABC = Skill_C<Myclass_AB>; 
+
+    Myclass_ABC m1;
+    m1.func_A();
+    m1.func_B();
+    m1.func_C();
+
+    // output ->
+    //  Skill_A::func_A
+    //  Myclass::foo_A
+    //  Skill_B::func_B
+    //  Myclass::foo_B
+    //  Skill_C::func_C
+    //  Myclass::foo_C
+
+    // -------------------------------------------
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_same
+
+  template <typename Base>
+  class Skill_A : public Base {};
+
+  template <typename Base>
+  class Skill_B : public Base {};
+
+  template <typename Base>
+  class Skill_C : public Base {};
+
+  class Myclass {};
+
+  int main()
+  {
+    using t1 = Skill_A<Skill_B<Skill_C<Myclass>>>;  // ABC
+    using t6 = Skill_A<Skill_C<Skill_B<Myclass>>>;  // ACB
+    using t2 = Skill_B<Skill_A<Skill_C<Myclass>>>;  // BAC
+    using t5 = Skill_B<Skill_C<Skill_A<Myclass>>>;  // BCA
+    using t3 = Skill_C<Skill_A<Skill_B<Myclass>>>;  // CAB
+    using t4 = Skill_C<Skill_B<Skill_A<Myclass>>>;  // CBA
+
+    static_assert(!std::is_same_v<t1, t2> && 
+                  !std::is_same_v<t1, t3> &&
+                  !std::is_same_v<t1, t4> &&
+                  !std::is_same_v<t1, t5> &&
+                  !std::is_same_v<t1, t6> &&);  // holds
+  }
+*/
+
+/*
+  #include <string>
+
+  template <typename Printable>
+  struct Print_Repeat : Printable
+  {
+    explicit Print_Repeat(const Printable& printable)
+      : Printable{ printable } {}
+    
+    using Printable::Printable; // inherited constructor
+
+    void repeat(unsigned int N) const
+    {
+      while (N-- > 0)
+        this->print();
+    }
+  };
+
+  class Person {
+  private:
+    std::string m_first_name;
+    std::string m_last_name;
+
+  public:
+    Person(std::string first_name, std::string last_name)
+      : m_first_name{ first_name }, m_last_name{ last_name } {}
+
+    void print() const 
+    {
+      std::cout << m_last_name << ", " << m_first_name << '\n';
+    }
+  };
+
+  using Repeatedly_Printable_Person = Print_Repeat<Person>;
+
+  int main()
+  {
+    // --------------------------------------------------------
+
+    Repeatedly_Printable_Person p1{ Person{ "hello", "world" } };
+    p1.repeat(2);
+    // output ->
+    //  world, hello
+    //  world, hello
+
+    // --------------------------------------------------------
   }
 */

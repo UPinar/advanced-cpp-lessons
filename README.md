@@ -118,6 +118,9 @@
   - `source_location` module 
   - `using` enum declaration
 
+### [C++23 Changes](https://github.com/UPinar/AdvancedCPPLessons/tree/main/cpp23_changes)
+  - explicit object parameter
+
 ### [`<bit>` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/bit_module)
 
 ### [`<ranges>` module (C++20)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/ranges_module)
@@ -170,8 +173,9 @@
     - point of instantiation (POI)
     - explicit instantiation
       - explicit instantiation directive
-      - extern template declaration
+      - `extern` template declaration
   - CRTP (Curiously Recurring Template Pattern)
+  - Mixin Pattern
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax

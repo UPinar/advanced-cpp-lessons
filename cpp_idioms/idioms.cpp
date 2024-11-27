@@ -1480,3 +1480,163 @@ int main()
 // -----------------------------------------------------
 // -----------------------------------------------------
 // -----------------------------------------------------
+
+/*
+  // some enum types is being used as bitmasks
+
+  enum Color { YELLOW = 0x1, RED = 0x2, BLUE = 0x4 };
+  // unscoped enum type
+
+  int main()
+  {
+    // -----------------------------------------------------
+
+    auto purple = Color::RED | Color::BLUE;
+    auto purple_2 = RED | BLUE;
+    // Those 2 lines are equivalent.
+
+    // enumarator's(RED, BLUE, YELLOW) scope 
+    // is unscoped enum's(Color) scope
+    // which is global namespace scope in this case.
+
+    auto green  = Color::YELLOW | Color::BLUE; 
+    auto orange = Color::YELLOW | Color::RED;
+
+    // -----------------------------------------------------
+
+    // purple, orange and green's data type is `int`
+
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+  enum class Color { YELLOW = 0x1, RED = 0x2, BLUE = 0x4 };
+  // scoped enum type(enum class)
+
+  int main()
+  {
+    auto purple = Color::RED | Color::BLUE;     // syntax error
+    auto green  = Color::YELLOW | Color::BLUE;  // syntax error
+    auto orange = Color::YELLOW | Color::RED;   // syntax error
+    
+    // error: no match for 'operator|' 
+    //  (operand types are 'Color' and 'Color')
+  }
+*/
+
+/*
+  #include <type_traits>  // std::underlying_type
+
+  enum class Color { YELLOW = 0x1, RED = 0x2, BLUE = 0x4 };
+  // scoped enum type(enum class)
+
+  constexpr Color operator|(Color lhs, Color rhs)
+  {
+    using u_type = std::underlying_type_t<Color>;
+
+    return static_cast<Color>(static_cast<u_type>(lhs) | 
+                              static_cast<u_type>(rhs));
+  }
+
+  int main()
+  {
+    constexpr auto purple = Color::RED | Color::BLUE;
+    // purple -> (Color)6
+
+    constexpr auto green  = Color::YELLOW | Color::BLUE;
+    // green -> (Color)5
+
+    constexpr auto orange = Color::YELLOW | Color::RED;
+    // orange -> (Color)3
+  }
+*/
+
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+
+/*
+  // command line arguments will be hold in string_view vector
+
+  #include <vector>
+  #include <string_view>
+
+  int main(int argc, char** argv)
+  {
+    std::vector<std::string_view> args{ argv, argv + argc };
+    // std::vector has a range constructor.
+    // one-liner version
+
+    for (auto arg : args) {
+      std::cout << arg << '\n';
+    }
+
+    // input -> prog.exe hello world
+    // output -> 
+    //  prog.exe
+    //  hello
+    //  world
+  }
+*/
+
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+
+/*
+  // converting the string that printf will write to stream
+  // to a std::string object, so we can use printf function's 
+  // formatting capabilities.
+
+  #include <cstdio>   // std::printf
+  #include <string>   // std::string
+  #include <cstdarg>  // va_list, va_start, va_end
+
+  // va_list types
+  // va_start, va_arg, va_end, va_copy MACROS
+  // vsnprintf_s, vsprintf, vfprintf functions
+  std::string printf_to_str(const char* fmt, ...)
+  {
+    va_list args;
+    va_list args2;
+
+    va_start(args, fmt);
+    va_copy(args2, args);
+
+    std::string str( vsnprintf(nullptr, 0, fmt, args2) + 1, '\0');
+    // fill constructor
+
+    va_end(args2);
+    vsprintf(str.data(), fmt, args);
+    va_end(args);
+
+    str.pop_back();
+    return str;
+  }
+
+  int main()
+  {
+    char str[] = "hello world";
+    int ival = 22;
+    double dval = 3.14;
+
+    printf("%s and %d and %.2f\n", str, ival, dval);
+    // output -> hello world and 22 and 3.14
+
+    auto s1 = printf_to_str("%s and %d and %.2f", str, ival, dval);
+
+    std::cout << '[' << s1 << "]\n";
+    // output -> [hello world and 22 and 3.14]
+  }
+*/
+
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
