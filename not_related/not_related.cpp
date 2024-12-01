@@ -1112,3 +1112,502 @@
     // --------------------------------------------------
   }
 */
+
+/*
+                        -----------------
+                        | std::exchange |
+                        -----------------
+*/
+
+/*
+  #include <utility>  
+  // std::move, std::forward, std::exchange
+  #include <type_traits>  
+  // std::is_nothrow_move_constructible
+  // std::is_nothrow_assignable
+
+  template <class T, class U = T>
+  constexpr T exchange(T& obj, U&& new_value) 
+  noexcept( std::is_nothrow_move_constructible_v<T> && 
+            std::is_nothrow_assignable_v<T&, U>)
+  {
+    T old_value = std::move(obj);
+    obj = std::forward<U>(new_value);
+    return old_value;
+  }
+
+  // std::exchange        C++14
+  // constexpr            C++20
+  // noexcept specifier   C++23
+
+  // bir nesneye değer atayarak, nesnenin değeri değiştirilir.
+  // eski değer geri döndürülür.
+*/
+
+/*
+  #include <utility>  // std::exchange
+
+  int main()
+  {
+    int x = 20;
+    auto y = std::exchange(x, 30);
+
+    std::cout << "x = " << x << '\n';   // output -> x =  30
+    std::cout << "y = " << y << '\n';   // output -> y =  20
+  }
+*/
+
+/*
+  #include <utility>  // std::exchange
+  #include <string>
+
+  int main()
+  {
+    std::string str{ "hello world" };
+    auto y = std::exchange(str, "hello universe");
+
+    std::cout << "str = " << str << '\n';   
+    // output -> str = hello universe
+
+    std::cout << "y = " << y << '\n';
+    // output -> y = hello world
+  }
+*/
+
+/*
+  // generally used in move members
+
+  #include <utility>  // std::exchange
+
+  class Myclass {
+  private:
+    int m_value;
+
+  public:
+    Myclass(Myclass&& other) noexcept
+      : m_value{ std::exchange(other.m_value, 0) } {}
+    
+    Myclass& operator=(Myclass&& other) noexcept
+    {
+      if (this != &other) // self-assignment check
+        m_value = std::exchange(other.m_value, 0);
+      
+      return *this;
+    }
+  };
+*/
+
+/*
+  // possibly same assembly codes
+
+  #include <utility>  // std::exchange
+
+  char* strcpy_1(char* p_dest, const char* p_src)
+  {
+    while ((*p_dest++ = *p_src++))
+      ; // null statement
+
+    return p_dest;
+  }
+
+  char* strcpy_2(char* p_dest, const char* p_src)
+  {
+    for(;;)
+    {
+      auto src_char = std::exchange(p_src, p_src + 1);
+      auto dest_char = std::exchange(p_dest, p_dest + 1);
+      *dest_char = *src_char;
+
+      if (*dest_char == '\0')
+        break;
+    }
+
+    return p_dest;
+  }
+*/
+
+/*
+  #include <vector>
+  #include <utility>  // std::exchange
+  #include "../nutility.h"
+
+  int main()
+  {
+    std::vector ivec = { 1, 2, 3, 4, 5, 6 };
+
+    auto old_ivec = std::exchange(ivec, { 11, 22, 33, 44, 55 });
+
+    print(ivec);  
+    // output -> 11 22 33 44 55
+    print(old_ivec);     
+    // output -> 1 2 3 4 5 6
+  }
+*/
+
+/*
+  #include <format>   
+  #include <utility>  // std::exchange
+
+  int main()
+  {
+    for ( auto cnt = 0LL, a = 0LL, b = 1LL; 
+          cnt < 15; 
+          a = std::exchange(b, a + b), ++cnt )
+      std::cout << std::format("fib[{}] = {}\n", cnt, a);
+
+    // output ->
+    //  fib[0] = 0
+    //  fib[1] = 1
+    //  fib[2] = 1
+    //  fib[3] = 2
+    //  fib[4] = 3
+    //  fib[5] = 5
+    //  fib[6] = 8
+    //  fib[7] = 13
+    //  fib[8] = 21
+    //  fib[9] = 34
+    //  fib[10] = 55
+    //  fib[11] = 89
+    //  fib[12] = 144
+    //  fib[13] = 233
+    //  fib[14] = 377
+  }
+*/
+
+/*
+  #include <utility>  // std::exchange
+
+  void foo()
+  {
+    std::cout << "foo()\n";
+  }
+
+  void bar()
+  {
+    std::cout << "bar()\n";
+  }
+
+  int main()
+  {
+    auto f1 = &foo;
+    f1();   // output -> foo()
+
+    auto f2 = std::exchange(f1, &bar);
+    f2();   // output -> foo()
+    f1();   // output -> bar()
+  }
+*/
+
+/*
+                          --------------
+                          | std::clamp |
+                          --------------
+*/
+
+/*
+  #include <functional>   // std::less
+
+  template <class T>
+  constexpr const T& clamp( const T& val, 
+                            const T& low, const T& high)
+  {
+    return clamp(val, low, high, std::less{});
+  }
+
+  template <class T, class Compare>
+  constexpr const T& clamp( const T& val, 
+                            const T& low, const T& high, 
+                            Compare comp)
+  {
+    return comp(val, low) ? low : comp(high, val) ? high : val;
+  }
+
+  // when local variable is bind to a reference,
+  // which is the return value of a function,
+  // it will be a reference to a temporary object
+  // dangling reference!
+*/
+
+/*
+  #include <algorithm>  // std::clamp
+
+  int main()
+  {
+    int ival  = 22;
+    int low   = 11;
+    int high  = 33;
+
+    auto res = std::clamp(ival, low, high);
+    std::cout << "res = " << res << '\n';  
+    // output -> res = 22
+
+    ival = 5;
+    res = std::clamp(ival, low, high);
+    std::cout << "res = " << res << '\n';
+    // output -> res = 11
+
+    ival = 44;
+    res = std::clamp(ival, low, high);
+    std::cout << "res = " << res << '\n';
+    // output -> res = 33
+  }
+*/
+
+/*
+  #include <array>
+  #include <algorithm>  // std::clamp, std::transform
+
+  int main()
+  {
+    using namespace std;
+
+    array i_arr{ -3, 0, -5, 2, 7, -1, 4, 6, -2, 3 };
+
+    for (const int elem : i_arr)
+      cout << elem << ' ';
+    // output -> -3 0 -5 2 7 -1 4 6 -2 3
+
+    cout << '\n';
+
+    int low = -1, high = 3;
+
+    transform(begin(i_arr), end(i_arr), begin(i_arr), 
+              [low, high](int val) { 
+                return std::clamp(val, low, high); 
+              });
+
+    for (const int elem : i_arr)
+      cout << elem << ' ';
+    // output -> -1 0 -1 2 3 -1 3 3 -1 3
+  }
+*/
+
+/*
+                      ------------------
+                      | deep constness |
+                      ------------------
+*/
+
+/*
+  int main()
+  {
+    int x = 10;
+    int y = 20;
+
+    // --------------------------------------------------
+
+    int* p = &x;
+
+    p = &y;   // VALID
+    *p = 11;  // VALID
+
+    // --------------------------------------------------
+
+    int* const cp = &x;
+
+    cp = &y;  // syntax error
+    // error: assignment of read-only variable 'cp'
+    *cp = 22; // VALID
+
+    // --------------------------------------------------
+
+    const int* p2 = &x;
+    
+    p2 = &y;  // VALID
+    *p2 = 33; // syntax error
+    // error: assignment of read-only location '* p2'
+
+    // --------------------------------------------------
+
+    const int* const cp2 = &x;
+
+    cp2 = &y;  // syntax error
+    // error: assignment of read-only variable 'cp2'
+
+    *cp2 = 44; // syntax error
+    // error: assignment of read-only location '*(const int*)cp2'
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+
+  int main()
+  {
+    std::vector ivec = { 1, 2, 3, 4, 5, 6 };
+
+    // --------------------------------------------------
+
+    std::vector<int>::iterator iter = ivec.begin();
+    *iter = 10;   // VALID
+    ++iter;       // VALID
+
+    // --------------------------------------------------
+
+    const std::vector<int>::iterator c_iter = ivec.begin();
+    // class object is `const`
+
+    ++c_iter;     // syntax error
+    // error: passing 
+    // 'const std::vector<int, std::allocator<int> >::iterator' 
+    // as 'this' argument discards qualifiers
+
+    // operator++ function is non-const member function
+    // const class object can not call non-const member function
+
+    *c_iter = 20; // VALID
+
+    // --------------------------------------------------
+
+    std::vector<int>::const_iterator iter_2 = ivec.begin();
+
+    ++iter_2;     // VALID
+
+    *iter_2 = 30; // syntax error
+    // error: assignment of read-only location 
+    // 'normal_iterator<const int*, 
+    // std::vector<int, std::allocator<int>>>::operator*()'
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <memory>   // std::unique_ptr, std::make_unique
+
+  class AClass {
+  public:
+    void foo();         // non-const member function
+    void bar()const;    // const member function
+  };
+
+  class BClass {
+  private:
+    std::unique_ptr<AClass> mp_AClass;
+
+  public: 
+    BClass() : mp_AClass{ std::make_unique<AClass>() } {}
+
+    // non-const member function
+    void f1() 
+    {
+      mp_AClass->foo();   // VALID
+      mp_AClass->bar();   // VALID
+    }
+
+    // const member function
+    void f2()const 
+    {
+      mp_AClass->foo();   // VALID
+      mp_AClass->bar();   // VALID
+    }
+  };
+
+  // PROBLEM : 
+  // calling const member functions of non const member object
+  // is valid which is not a desired behavior.
+*/
+
+/*
+  // ------- SOLUTION 1 -------
+
+  #include <memory>   // std::unique_ptr, std::make_unique
+
+  class AClass {
+  public:
+    void foo();         // non-const member function
+    void bar()const;    // const member function
+  };
+
+  class BClass {
+  private:
+    std::unique_ptr<AClass> mp_AClass;
+
+    const AClass* get_pAClass() const
+    {
+      return mp_AClass.get();
+    }
+
+    AClass* get_pAClass()
+    {
+      return mp_AClass.get();
+    }
+
+  public: 
+    BClass() : mp_AClass{ std::make_unique<AClass>() } {}
+
+    // non-const member function
+    void f1() 
+    {
+      get_pAClass()->foo();   // VALID
+      get_pAClass()->bar();   // VALID
+    }
+
+    // const member function
+    void f2()const 
+    {
+      get_pAClass()->foo();   // syntax error
+      // error: passing 'const AClass' as 'this' argument 
+      // discards qualifiers 
+
+      get_pAClass()->bar();   // VALID
+    }
+  };
+*/
+
+/*
+  // ------- SOLUTION 2 -------
+
+  template <typename T>
+  class deep_const_pointer {
+  private:
+    T* mp_obj;
+
+  public:
+    explicit deep_const_pointer(T* p) : mp_obj{ p } {}
+
+    const T& operator*() const { return *mp_obj; }
+    T& operator*() { return *mp_obj; }
+
+    const T* operator->() const { return mp_obj; }  
+    T* operator->() { return mp_obj; }
+  };
+
+
+  class AClass {
+  public:
+    void foo();
+    void bar() const;
+  };
+
+  class BClass {
+  private:
+    deep_const_pointer<AClass> mp_AClass;
+
+  public:
+    // non-const member function
+    void f1() 
+    {
+      mp_AClass->foo();   // VALID
+      mp_AClass->bar();   // VALID
+    }
+
+    // const member function
+    void f2() const 
+    {
+      mp_AClass->foo();   // syntax error
+      // error: passing 'const AClass' as 'this' argument 
+      // discards qualifiers
+
+      mp_AClass->bar();   // VALID
+    }
+  };
+*/
+
+// --------------------------------------------------
+// --------------------------------------------------
+// --------------------------------------------------
+// --------------------------------------------------
+// --------------------------------------------------

@@ -150,7 +150,8 @@
   - non virtual interface idiom (NVI)
     - fragile base class problem
   - `std::tuple` idioms
-
+  - PIMPL idiom(Pointer to Implementation)
+  
 ### [Generic Programming](https://github.com/UPinar/AdvancedCPPLessons/tree/main/generic_programming)
   - template argument deduction
   - template parameter types
@@ -176,6 +177,8 @@
       - `extern` template declaration
   - CRTP (Curiously Recurring Template Pattern)
   - Mixin Pattern
+  
+### [Strong Types](https://github.com/UPinar/AdvancedCPPLessons/tree/main/strong_types)
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
@@ -188,3 +191,6 @@
   - `namespace` alias
   - ADL and two step lookup
   - `std::invoke`
+  - `std::exchange` in <utility>
+  - `std::clamp` in <algorithm>
+  - deep constness

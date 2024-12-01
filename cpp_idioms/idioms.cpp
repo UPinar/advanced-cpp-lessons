@@ -1640,3 +1640,104 @@ int main()
 // -----------------------------------------------------
 // -----------------------------------------------------
 // -----------------------------------------------------
+
+/*
+            ------------------------------------------
+            | PIMPL idiom(Pointer to Implementation) |
+            ------------------------------------------
+*/
+
+/*
+  diğer isimler :
+    - opaque pointer idiom
+    - handle-body idiom
+    - d-pointer idiom
+    - cheshire cat idiom
+    - compiler firewall idiom
+
+  - sınıfın interface ve implementasyonu arasındaki bağımlılığı
+    ortadan kaldırır.
+
+  - sınıfın private veri elemanları ve private fonksiyonları
+    sınıfın implementasyon sınıfına taşınır.
+
+  - derleme zamanınını düşürür.
+*/
+
+/*
+  class Myclass {
+  private:
+    int m_i1;
+    int m_i2;
+    double m_d1;
+  };
+
+  // Question : 
+  //  when a data member added to or removed from Myclass,
+  //  does binary compatibility will be broken?
+
+  // Answer : 
+  //  Yes, class object's layout will be changed and
+  //  sizeof(Myclass) will be changed
+*/
+
+/*
+  class Myclass {
+  public:
+    void func(int);
+
+  private:
+    void func(double);
+  };
+
+  // Question : 
+  //  why Myclass's private member functions are are also 
+  //  been removed from Myclass's interface?
+  // Answer : because of function overloading.
+
+  // function overload resolution is done before access control
+*/
+
+/*
+  // file1.h
+  // -----------
+
+  #include <memory> // std::unique_ptr
+
+  class Myclass {
+  private:
+    struct Pimpl;
+    std::unique_ptr<Pimpl> mp_Pimpl;
+    ~Myclass();
+  };
+
+  // file1.cpp
+  // -----------
+
+  struct Myclass::Pimpl {
+    int m_i1;
+    int m_i2;
+    double m_d1;
+  };
+
+  Myclass::~Myclass() = default;
+*/
+
+/*
+        <---- check ../not_related/deep constness ---->
+*/
+
+/*
+  #include "../headers/student.h"
+
+  int main()
+  {
+    Student s1("hello", "world");
+    s1.add_grade(66);
+    s1.add_grade(77);
+    s1.add_grade(88);
+
+    s1.print();
+    // output -> name = hello, surname = world, grades = 66 77 88
+  }
+*/
