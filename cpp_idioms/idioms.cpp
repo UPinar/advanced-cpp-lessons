@@ -360,6 +360,103 @@
   }
 */
 
+/*
+                -------------------------------
+                | polymorphic exception idiom |
+                -------------------------------
+*/
+
+/*
+  - elimizde oluşturulmuş bir exception nesnesi var.
+    (geçici nesne de olabilir)
+    bu exception nesnesi, exception hiyerarşisi içinde
+    child class'lardan biri olabilir.
+
+  - bu exception nesnesi bir fonksiyona gönderilmek
+    ve fonksiyonun, gönderilen exception nesnesi türünden 
+    bir exception throw etmesi isteniliyor.
+    (burada amaç dinamik exception nesnesinin türünü korumak)
+*/
+
+/*
+  class Exception_Base {};
+  class Exception_Der1    : public Exception_Base {};
+  class Exception_Der1_1  : public Exception_Der1 {};
+
+  void func(Exception_Base& ex)
+  {
+    throw ex;   // object slicing 
+  }
+
+  int main()
+  {
+    Exception_Der1 ex1;
+
+    try {
+      func(ex1);  
+    }
+    catch (Exception_Der1_1) {
+      std::cout << "Exception_Der1_1 caught\n";
+    }
+    catch (Exception_Der1) {
+      std::cout << "Exception_Der1 caught\n";
+    }
+    catch (Exception_Base) {
+      std::cout << "Exception_Base caught\n";
+    }
+    catch (...) {
+      std::cout << "Unknown exception caught\n";
+    }
+    // output -> Exception_Base caught
+  }
+*/
+
+/*
+  // polymorphic Base class
+  class Exception_Base {
+  public:
+    virtual ~Exception_Base() = default;   // virtual destructor
+    virtual void raise() { throw *this; }
+  };
+
+  class Exception_Der1    : public Exception_Base {
+  public:
+    void raise() override { throw *this; }
+  };
+  class Exception_Der1_1  : public Exception_Der1 {
+  public:
+    void raise() override { throw *this; }
+  };
+
+  void func(Exception_Base& ex)
+  {
+    ex.raise();   // virtual dispatch
+  }
+
+  int main()
+  {
+    Exception_Der1_1 ex1;
+
+    try {
+      func(ex1);  
+    }
+    catch (Exception_Der1_1) {
+      std::cout << "Exception_Der1_1 caught\n";
+    }
+    catch (Exception_Der1) {
+      std::cout << "Exception_Der1 caught\n";
+    }
+    catch (Exception_Base) {
+      std::cout << "Exception_Base caught\n";
+    }
+    catch (...) {
+      std::cout << "Unknown exception caught\n";
+    }
+
+    // output -> Exception_Der1_1 caught
+  }
+*/
+
 // -----------------------------------------------------
 // -----------------------------------------------------
 // -----------------------------------------------------
@@ -1699,32 +1796,12 @@ int main()
 */
 
 /*
-  // file1.h
-  // -----------
-
-  #include <memory> // std::unique_ptr
-
-  class Myclass {
-  private:
-    struct Pimpl;
-    std::unique_ptr<Pimpl> mp_Pimpl;
-    ~Myclass();
-  };
-
-  // file1.cpp
-  // -----------
-
-  struct Myclass::Pimpl {
-    int m_i1;
-    int m_i2;
-    double m_d1;
-  };
-
-  Myclass::~Myclass() = default;
+        <---- check ../not_related/deep constness ---->
 */
 
 /*
-        <---- check ../not_related/deep constness ---->
+              <--- check ../headers/student.h --->
+              <--- check ../src/student.cpp --->
 */
 
 /*
@@ -1741,3 +1818,301 @@ int main()
     // output -> name = hello, surname = world, grades = 66 77 88
   }
 */
+
+/*
+                    ---------------------
+                    | Fast-PIMPLE idiom |
+                    ---------------------
+*/
+
+/*
+  #include <cstddef>      // std::size_t, std::max_align_t
+  #include <type_traits>  
+  // std::aligned_storage, std::alignment_of
+  #include <string>
+
+  using namespace std;
+
+  // ---------------------------------------------------
+
+  // placement.h
+  // ------------ 
+
+  template <typename T>
+  void placement_new(void* buffer, std::size_t buffer_size)
+  {
+    new(buffer)T();
+  }
+
+  template <typename T>
+  T* placement_cast(void* buffer)
+  {
+    return reinterpret_cast<T*>(buffer);
+  }
+
+  template <typename T>
+  void placement_delete(void* buffer)
+  {
+    placement_cast<T>(buffer)->~T();
+  }
+
+  // ---------------------------------------------------
+
+  // logger.h
+  // ----------
+
+  class Logger {
+  private:
+    static constexpr std::size_t m_size{ 1024 };
+    aligned_storage<m_size, alignment_of_v<max_align_t>> m_impl{};
+
+  public:
+    Logger();
+    ~Logger();
+    void log(const std::string& msg);
+  };
+
+  // ---------------------------------------------------
+
+  // logger.cpp
+  // ------------
+
+  // #include "logger.h"
+  // #include "placement.h"
+  #include <fstream>
+
+  class Logger_Impl {
+  private:
+    std::ofstream m_ofs;
+
+  public:
+    void log(const std::string& msg)
+    {
+      m_ofs << "message : " <<  msg << std::endl;
+      std::cout << "message : " <<  msg << std::endl;
+    }
+  };
+
+  Logger::Logger()
+  {
+    static_assert( m_size >= sizeof(Logger_Impl));
+
+    placement_new<Logger_Impl>(&m_impl, sizeof(Logger_Impl));
+  }
+
+  Logger::~Logger()
+  {
+    placement_delete<Logger_Impl>(&m_impl);
+  }
+
+  void Logger::log(const std::string& msg)
+  {
+    placement_cast<Logger_Impl>(&m_impl)->log(msg);
+  }
+
+  // ---------------------------------------------------
+*/
+
+/*
+                      -------------------
+                      | copy-swap idiom |
+                      -------------------
+*/
+
+/*
+  - sınıfın atama operatör fonksiyonlarının yazılmasında 
+    kullanılıyor. (copy assignment, move assignment)
+*/
+
+/*
+  // when strong exception guarantee is needed
+  // strong_assign function can be used.
+
+  template <typename T>
+  T& strong_assign(T& dest, T& source)
+  {
+    using std::swap;
+    swap(dest, source);
+    return dest;
+  }
+*/
+
+/*
+  #include <cstddef>    // std::size_t
+  #include <algorithm>  // std::copy_n, std::swap
+  #include <utility>    // std::exchange
+
+  template <typename T>
+  class Dynamic_Arr {
+  private:
+    T* mp_arr;
+    std::size_t m_size;
+
+  public:
+    Dynamic_Arr(T* p_arr, std::size_t size)
+      : mp_arr{ p_arr }, m_size{ size } {}
+
+    Dynamic_Arr(const Dynamic_Arr& other)
+      : mp_arr{ new T[other.m_size] }, m_size{ other.m_size }
+    {
+      std::copy_n(other.mp_arr, other.m_size, mp_arr);
+    }
+
+    Dynamic_Arr(Dynamic_Arr&& other)
+      : mp_arr{ std::exchange(other.mp_arr, nullptr) }, 
+        m_size{ other.m_size }
+
+    ~Dynamic_Arr()
+    {
+      if (mp_arr)
+        delete[] mp_arr;
+    }
+
+    T& operator[](std::size_t idx) 
+    { 
+      return mp_arr[idx]; 
+    }
+    const T& operator[](std::size_t idx) const 
+    { 
+      return mp_arr[idx]; 
+    }
+
+    std::size_t size() const 
+    { 
+      return m_size; 
+    }
+
+    // hidden friend swap function
+    friend void swap(Dynamic_Arr& lhs, Dynamic_Arr& rhs) noexcept
+    {
+      using std::swap;
+      swap(lhs.mp_arr, rhs.mp_arr);
+      swap(lhs.m_size, rhs.m_size);
+    }
+
+    // -----------------------------------------------------
+
+    // ----------------- OLD WAY -----------------
+    // Dynamic_Arr& operator=(const Dynamic_Arr& other)
+    // {
+    //   Dynamic_Arr temp_arr(other);
+    //   swap(*this, temp_arr);
+    //   return *this;
+    // }
+
+    // ----------------- NEW WAY -----------------
+    Dynamic_Arr& operator=(Dynamic_Arr arr_copy)
+    {
+      swap(*this, arr_copy);
+      return *this;
+    }
+
+    // -----------------------------------------------------
+  };
+*/
+
+/*
+                    -------------------------
+                    | attorney-client idiom |
+                    -------------------------
+*/
+
+/*
+  class Myclass {
+  private:
+    friend class AClass;
+
+    void foo()
+    {
+      std::cout << "Myclass::foo() - private\n";
+    }
+    void bar()
+    {
+      std::cout << "Myclass::bar() - private\n";
+    }
+    void baz()
+    {
+      std::cout << "Myclass::baz() - private\n";
+    }
+  };
+
+  class AClass {
+  public:
+    void func(Myclass& m)
+    {
+      m.foo();
+      m.bar();
+      m.baz();
+    }
+  };
+
+  int main()
+  {
+    AClass a1;
+    Myclass m1;
+
+    a1.func(m1);
+    // output ->
+    //  Myclass::foo() - private
+    //  Myclass::bar() - private
+    //  Myclass::baz() - private
+  }
+*/
+
+/*
+  // what if we want to give an access to ONLY "foo" function
+  // NOT "bar" and "baz" functions
+
+  // also can be applied to data members
+
+  class Myclass {
+  private:
+    int m_x{ 11111 };
+
+    friend class Attorney;
+
+    void foo()
+    {
+      std::cout << "Myclass::foo() - private\n";
+    }
+    void bar()
+    {
+      std::cout << "Myclass::bar() - private\n";
+    }
+    void baz()
+    {
+      std::cout << "Myclass::baz() - private\n";
+    }
+  };
+
+  class Attorney {
+    friend class Client;
+    static void foo(Myclass& m) { m.foo(); }
+    static int get_x(const Myclass& m) { return m.m_x; }
+  };
+
+  class Client {
+  public:
+    void foo(Myclass& m) { Attorney::foo(m); }
+    int get_x(Myclass& m) { return Attorney::get_x(m); }
+  };
+
+  int main()
+  {
+    Myclass m1;
+    Client c1;
+
+    c1.foo(m1); 
+    // output -> Myclass::foo() - private
+    
+    int val = c1.get_x(m1); 
+    std::cout << "val = " << val << '\n';
+    // output -> val = 11111
+  }
+*/
+
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------
+// -----------------------------------------------------

@@ -143,6 +143,7 @@
 ### [C++ Idioms](https://github.com/UPinar/AdvancedCPPLessons/tree/main/cpp_idioms)
   - exception tracker idiom
   - exception dispatcher idiom
+  - polymorphic exception idiom
   - ADL + fallback idiom
   - hidden friend idioms
   - scope guard idiom
@@ -151,6 +152,9 @@
     - fragile base class problem
   - `std::tuple` idioms
   - PIMPL idiom(Pointer to Implementation)
+  - Fast PIMPL idiom
+  - copy-swap idiom
+  - attorney-client idiom
   
 ### [Generic Programming](https://github.com/UPinar/AdvancedCPPLessons/tree/main/generic_programming)
   - template argument deduction
@@ -179,6 +183,15 @@
   - Mixin Pattern
   
 ### [Strong Types](https://github.com/UPinar/AdvancedCPPLessons/tree/main/strong_types)
+
+### [Exception Handling](https://github.com/UPinar/AdvancedCPPLessons/tree/main/exception_handling)
+  - `std::exception_ptr` (C++11)
+    - `std::make_exception_ptr`
+  - `std::nested_exception` (C++11)
+    - `std::throw_with_nested`
+    - `std::rethrow_if_nested`
+  
+### [`<regex>` module](https://github.com/UPinar/AdvancedCPPLessons/tree/main/regex_module)
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
