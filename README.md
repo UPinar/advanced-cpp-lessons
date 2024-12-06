@@ -192,6 +192,14 @@
     - `std::rethrow_if_nested`
   
 ### [`<regex>` module](https://github.com/UPinar/AdvancedCPPLessons/tree/main/regex_module)
+  - quantifiers
+  - lazy or greedy quantifiers
+  - anchor
+  - capture group
+  - back reference
+  - alternation
+  - positive and negative look ahead
+  - positive and negative look back
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
