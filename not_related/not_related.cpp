@@ -1606,6 +1606,62 @@
   };
 */
 
+/*
+                    -------------------------
+                    | file buffer to stream |
+                    -------------------------
+*/
+
+/*
+  #include <fstream>  // std::ifstream
+
+  int main()
+  {
+    std::ifstream ifs{ "../regex_module/floats.txt" };
+
+    std::cout << ifs.rdbuf() << '\n';
+    // output ->
+    //  hello
+    //  12.4
+    //  +15.76985
+    //  -1.2
+    //  world
+    //  9.87348654
+    //  999990.12
+    //  -1275634.333334
+    //  galaxy
+    //  93.333
+
+    // global "operator<<" overload that takes 
+    // std::filebuf* as a parameter.
+    // this function will pass the buffer to the stream.
+
+    // --------------------------------------------------
+
+    // when a file wants to be copied
+    // ifstream objects buffer can be passed to ofstream object
+
+    std::ifstream ifs2{ "../regex_module/floats.txt" };
+    std::ofstream ofs{ "copy.txt" };
+
+    ofs << ifs2.rdbuf();
+
+    // copy.txt ->
+    //  hello
+    //  12.4
+    //  +15.76985
+    //  -1.2
+    //  world
+    //  9.87348654
+    //  999990.12
+    //  -1275634.333334
+    //  galaxy
+    //  93.333
+
+    // --------------------------------------------------
+  }
+*/
+
 // --------------------------------------------------
 // --------------------------------------------------
 // --------------------------------------------------

@@ -1,9 +1,9 @@
 #include <iostream>
 
 /*
-                  ==========================
-                  | `regex` module (C++11) |
-                  ==========================
+                    ==========================
+                    | `regex` module (C++11) |
+                    ==========================
 */
 
 /*
@@ -416,9 +416,9 @@
 */
 
 /*
-              ------------------------------
-              | lazy or greedy quantifiers |
-              ------------------------------
+                ------------------------------
+                | lazy or greedy quantifiers |
+                ------------------------------
 */
 
 /*
@@ -495,6 +495,26 @@
   helloworld              (hello)
   hello                   (hello)
   hello123                (hello)
+
+  --------------------------------------------------
+
+  <.*>
+
+  literally '<'                   +
+  0 or more characters  (greedy)  + 
+  literally '>'
+
+  <h4> hello world </h4>         (<h4> hello world </h4>)
+
+  --------------------------------------------------
+
+  <.*?>
+
+  literally '<'                   +
+  0 or more characters  (lazy)    +
+  literally '>'
+
+  <h4> hello world </h4>         (<h4>)
 
   --------------------------------------------------
 */
@@ -1455,53 +1475,706 @@
 */
 
 /*
-  #include <vector>
+  #include <fstream>    // std::ifstream
   #include <string>
-  #include <fstream>    // std::ifstream, std::ofstream
-  #include <utility>    // std::move
-  #include <regex>      // std::regex_search, std::smatch
+  #include <regex>      // std::regex_matc, std::smatch
+  #include <format>
 
-  using namespace std;
-  vector<string> sentence_file_to_vec(const string& file_name)
+  int main()
   {
-    ifstream ifs{ file_name };
+    using namespace std;
+
+    ifstream ifs{ "floats.txt" };
     if (!ifs) {
       cerr << "file open error\n";
       throw std::runtime_error{ "file open error" };
     }
 
-    vector<string> svec;
-    string sline;
+    string line;
 
-    while (getline(ifs, sline))
-      svec.push_back(std::move(sline));
+    regex rgx{ "([-+]?\\d*)\\.?(\\d+)" };
 
-    return svec; // Named Return Value Optimization(NRVO)
+    // literally '-' or '+' for 0 or 1 time +   (1st capture group)
+    // digits for 0 or more times           +   (1st capture group)
+    // literally '.' for 0 or 1 time        +
+    // digits for 1 or more times           +   (2nd capture group)
+
+    smatch sm;
+
+    while (ifs >> line)
+    {
+      if (regex_match(line, sm, rgx)) {
+        cout << format("{:<15} is VALID\n", line);
+        cout << format("whole part = {:<10} |", sm.str(1));
+        cout << format("fractional part = {:10}\n", sm.str(2));
+        cout << '\n';
+      }
+      else
+        cout << format("{:<15} is INVALID\n\n", line);
+    }
+    // output ->
+    //  hello           is INVALID
+    //  
+    //  12.4            is VALID
+    //  whole part = 12         |fractional part = 4
+    //  
+    //  +15.76985       is VALID
+    //  whole part = +15        |fractional part = 76985
+    //  
+    //  -1.2            is VALID
+    //  whole part = -1         |fractional part = 2
+    //  
+    //  world           is INVALID
+    //  
+    //  9.87348654      is VALID
+    //  whole part = 9          |fractional part = 87348654
+    //  
+    //  999990.12       is VALID
+    //  whole part = 999990     |fractional part = 12
+    //  
+    //  -1275634.333334 is VALID
+    //  whole part = -1275634   |fractional part = 333334
+    //  
+    //  galaxy          is INVALID
+    //  
+    //  93.333          is VALID
+    //  whole part = 93         |fractional part = 333
+  }
+*/
+
+/*
+  #include <regex>
+
+  int main()
+  {
+    // -----------------------------------------------------
+
+    std::regex rgx1{ "hello" };
+    // literally "hello"
+
+    std::cout << "rgx1.mark_count() = " 
+              << rgx1.mark_count() << '\n';
+    // output -> rgx1.mark_count() = 0
+
+    // -----------------------------------------------------
+
+    std::regex rgx2{ "(hello) (world)" };
+    // literally "hello"    +     (1st capture group)
+    // literally ' '        + 
+    // literally "world"          (2nd capture group)
+
+    std::cout << "rgx2.mark_count() = " 
+              << rgx2.mark_count() << '\n';
+    // output -> rgx2.mark_count() = 2
+
+    // -----------------------------------------------------
+
+    std::regex rgx3{ "(he(ll)o) (w(or)ld)" };
+
+    // literally "hello"    +     (1st capture group)
+    // literally ' '        +
+    // literally "world"          (3rd capture group) 
+
+    // literally "ll" inside 1st capture group --> 2nd capture group
+    // literally "or" inside 3rd capture group --> 4th capture group
+
+    std::cout << "rgx3.mark_count() = " 
+              << rgx3.mark_count() << '\n';
+    // output -> rgx3.mark_count() = 4
+
+    // -----------------------------------------------------
+
+    std::regex rgx4{ "\\(hello world\\)" };
+
+    // literally '('          +
+    // literally "hello"      +
+    // literally ' '          +
+    // literally "world"      +
+    // literally ')'
+
+    std::cout << "rgx4.mark_count() = " 
+              << rgx4.mark_count() << '\n';
+    // output -> rgx4.mark_count() = 0
+
+    // -----------------------------------------------------
+
+    std::regex rgx5{ "(?:hello) (world)" };
+    // literally "hello"    +     (NO capture group)
+    // literally ' '        +
+    // literally "world"          (1st capture group)
+
+    std::cout << "rgx5.mark_count() = " 
+              << rgx5.mark_count() << '\n';
+    // output -> rgx5.mark_count() = 1
+
+    // -----------------------------------------------------
+
+    std::regex rgx6{ "(hello) (world)", 
+                      std::regex_constants::nosubs };
+
+    // literally "hello"    +     (1st capture group)
+    // literally ' '        +
+    // literally "world"          (2nd capture group)
+
+    std::cout << "rgx6.mark_count() = " 
+              << rgx6.mark_count() << '\n';
+    // output -> rgx6.mark_count() = 0
+
+    // because of 2nd parameter is std::regex_constants::nosubs
+    // there WON'T BE ANY capture group
+
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <string>
+  #include <fstream>    // std::ifstream, std::ofstream
+  #include <iterator>   // std::istream_iterator
+  #include <algorithm>  // std::for_each
+  #include <regex>      // std::smatch
+  #include <format>
+
+  using namespace std;
+
+  vector<string> file_to_vec(const string& filename)
+  {
+    ifstream ifs{ filename };
+    if (!ifs)
+      throw std::runtime_error{ "file open error" };
+    
+    return vector<string>{ istream_iterator<string>{ ifs }, {} };
+    // returning temporary object (Mandatory Copy Elision)
   }
 
   int main()
   {
-    auto vec = sentence_file_to_vec("sentences.txt");
+    auto vec = file_to_vec("dictionary.txt");
 
     std::ofstream ofs{ "output.txt" };
-    if (!ofs) {
-      std::cerr << "file open error\n";
+    if (!ofs) 
       throw std::runtime_error{ "file open error" };
-    }
 
-    std::regex rgx{"\\d\\.\\d+"};
-    // digit                    + 
-    // literally '.'            + 
-    // 1 or more digit (greedy)
+    regex rgx{ "([krmnt]+)(ar)(\\w*)(in)(\\w*)" };
 
-    smatch results;
+    // 1 or more of 'k', 'r', 'm', 'n', 't'   +   (1st capture group)
+    // literally "ar"                         +   (2nd capture group)
+    // 0 or more word character               +   (3rd capture group)
+    // literally "in"                         +   (4th capture group)
+    // 0 or more word character                   (5th capture group)
 
-    for (const auto& sentence : vec) 
-    {
-      if (regex_search(sentence, results, rgx))
+    smatch sm;
+
+
+    for_each(vec.cbegin(), vec.cend(), [&](const string& str){
+      if (regex_match(str, sm, rgx))
       {
-        // continue lesson35
+        ofs << format("({})({})({})({})({})\n", 
+            sm.str(1), 
+            sm.str(2), 
+            sm.str(3),
+            sm.str(4), 
+            sm.str(5));
+      }});
+
+    // output.txt ->
+    //  (k)(ar)(ab)(in)(er)
+    //  (k)(ar)()(in)(ghota)
+    //  (k)(ar)(yok)(in)(esis)
+    //  (k)(ar)(yok)(in)(etic)
+    //  (k)(ar)(yot)(in)()
+    //  (k)(ar)(yot)(in)(s)
+    //  (k)(ar)(t)(in)(g)
+    //  ...
+  }
+*/
+
+/*
+  #include <vector>
+  #include <string>
+  #include <fstream>    // std::ifstream, std::ofstream
+  #include <iterator>   // std::istream_iterator
+  #include <regex>      // std::regex_search, std::smatch
+
+  using namespace std;
+  vector<string> file_to_vec(const string& file_name)
+  {
+    ifstream ifs{ file_name };
+    if (!ifs) 
+      throw std::runtime_error{ "file open error" };
+    
+    return vector<string>{ istream_iterator<string>{ ifs }, {} };
+    // returning temporary object (Mandatory Copy Elision)
+  }
+
+  int main()
+  {
+    auto vec = file_to_vec("numbers.txt");
+
+    std::ofstream ofs{ "output.txt" };
+    if (!ofs) 
+      throw std::runtime_error{ "file open error" };
+
+    regex rgx{ "(\\d{4})\\.([A-F]{4})\\.(\\d{4})" };
+
+    // 4 digits                       +   (1st capture group)
+    // literally '.'                  +
+    // 4 characters from'A' to 'F'    +   (2nd capture group)
+    // literally '.'                  +
+    // 4 digits                           (3rd capture group)
+
+    smatch sm;
+    for (const auto& str : vec) {
+      if (regex_search(str, sm, rgx)) {
+        if (sm.str(2)[0] == 'F' && sm[3].str()[0] == '1') {
+          ofs << format("{:<10}({})({})({}){:>10}\n",
+                    sm.prefix().str(),  // sub_match object
+                    sm.str(1),          // sub_match object
+                    sm.str(2),          // sub_match object
+                    sm.str(3),          // sub_match object
+                    sm.suffix().str()); // sub_match object
+        }
       }
     }
+
+    // output.txt ->
+    //  efgh      (5678)(FBDE)(1234)      qrst
+    //  efgh      (5678)(FBDE)(1234)      opqr
+  }
+*/
+
+/*
+                  -----------------------
+                  | std::regex_iterator |
+                  -----------------------
+*/
+
+/*
+  #include <string>
+  #include <fstream>    // std::ifstream
+  #include <iterator>   // std::istreambuf_iterator
+  #include <regex>      // std::sregex_iterator
+
+  using namespace std;
+
+  string file_to_str(const string& filename)
+  {
+    ifstream ifs{ filename };
+    if (!ifs)
+      throw std::runtime_error{ "file open error" };
+
+    return string{ istreambuf_iterator<char>{ ifs }, {} };
+    // returning temporary object (Mandatory Copy Elision)
+  }
+
+  int main()
+  {
+    auto str = file_to_str("numbers.txt");
+
+    regex rgx{ "(\\d{4})\\.([A-F]{4})\\.(\\d{4})" };
+
+    // iterator to smatch containers begin position 
+    //  std::sregex_iterator(beg, end, rgx)
+    // iterator to smatch containers end position 
+    //  std::sregex_iterator() -> default initialized
+
+    for ( sregex_iterator iter{ str.begin(), str.end(), rgx}, end;
+          iter != end; ++iter) 
+    {
+      cout << format("{}\n", iter->str(0)); 
+      // will write all matches
+      cout << format("{}\n", iter->str(1)); 
+      // will write 1st capture group
+      cout << format("{}\n", iter->str(2)); 
+      // will write 2nd capture group
+      cout << format("{}\n", iter->str(3)); 
+      // will write 3rd capture group
+
+      if (iter->str(2)[0] == 'F' && iter->str(3)[0] == '1')
+        cout << format("{}\n", iter->str());
+      // output ->
+      //  5678.FBDE.1234
+      //  5678.FBDE.1234
+    }
+  }
+*/
+
+/*
+  #include <string>
+  #include <fstream>    // std::ifstream
+  #include <iterator>   // std::istreambuf_iterator
+  #include <regex>      // std::sregex_iterator
+
+  using namespace std;
+
+  string file_to_str(const string& filename)
+  {
+    ifstream ifs{ filename };
+    if (!ifs)
+      throw std::runtime_error{ "file open error" };
+
+    return string{ istreambuf_iterator<char>{ ifs }, {} };
+    // returning temporary object (Mandatory Copy Elision)
+  }
+
+  int main()
+  {
+    auto str = file_to_str("sentences.txt");
+
+    // -----------------------------------------------------
+
+    regex rgx{ "\\lac\\w*" };
+
+    // word boundary (LINE START)   +
+    // literally "tor"              +
+    // 0 or more word character (greedy)
+
+    int cnt{};
+    for ( sregex_iterator iter{ str.begin(), str.end(), rgx};
+          iter != sregex_iterator{}; ++iter) 
+    {
+      cout << format("{:<4} {}\n", ++cnt, iter->str());
+    }
+    // output ->
+    //  1    lacus
+    //  2    lacerat
+    //  3    lacus
+    //  4    lacinia
+    //  5    lacerat
+    //  6    lacinia
+    //  ...
+
+    // -----------------------------------------------------
+
+    cnt = 0;
+    regex rgx2{ "\\w*lac\\w*" };
+
+    // 0 or more word character (greedy) +
+    // literally "lac"                   +
+    // 0 or more word character (greedy)
+
+    for ( sregex_iterator iter{ str.begin(), str.end(), rgx2};
+          iter != sregex_iterator{}; ++iter) 
+    {
+      cout << format("{:<4} {}\n", ++cnt, iter->str());
+    }
+    // output ->
+    //  1    lacus
+    //  2    placerat
+    //  3    lacus
+    //  4    lacinia
+    //  5    placerat
+    //  6    lacinia
+    //  ...
+
+    // -----------------------------------------------------
+
+    cnt = 0;
+    regex rgx3{ "\\w*tor\\b" };
+
+    // 0 or more word character (greedy) +
+    // literally "tor"                   +
+    // word boundary (LINE END)
+
+    for ( sregex_iterator iter{ str.begin(), str.end(), rgx3};
+          iter != sregex_iterator{}; ++iter) 
+    {
+      cout << format("{:<4} {}\n", ++cnt, iter->str());
+    }
+
+    // output ->
+    //  1    auctor
+    //  2    tortor
+    //  3    porttitor
+    //  4    auctor
+    //  ...
+
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+                  -----------------------------
+                  | std::regex_token_iterator |
+                  -----------------------------
+*/
+
+/*
+  #include <string>
+  #include <fstream>    // std::ifstream
+  #include <iterator>   // std::istreambuf_iterator
+  #include <regex>      // std::sregex_token_iterator
+  #include <format>
+
+  using namespace std;
+
+  string file_to_str(const string& filename)
+  {
+    ifstream ifs{ filename };
+    if (!ifs)
+      throw std::runtime_error{ "file open error" };
+
+    return string{ istreambuf_iterator<char>{ ifs }, {} };
+    // returning temporary object (Mandatory Copy Elision)
+  }
+
+  int main()
+  {
+    auto s = file_to_str("numbers.txt");
+
+    regex rgx{ "(\\d{4})\\.([A-F]{4})\\.(\\d{4})" };
+
+    // -----------------------------------------------------
+
+    for ( sregex_token_iterator it{ s.begin(), s.end(), rgx, 0 };
+          it != sregex_token_iterator{}; ++it) 
+    {
+      cout << format("{}\n", it->str());
+    }
+    // output ->
+    //  1234.ABCD.5678
+    //  5678.BCDE.1234
+    //  2345.CDEF.6789
+    //  3456.DFAB.7890
+
+    // -----------------------------------------------------
+
+    for ( sregex_token_iterator it{ s.begin(), s.end(), rgx, 1 };
+          it != sregex_token_iterator{}; ++it) 
+    {
+      cout << format("{}\n", it->str());
+    }
+
+    // output ->
+    //  1234
+    //  5678
+    //  2345
+    //  3456
+
+    // -----------------------------------------------------
+
+    for ( sregex_token_iterator it{ s.begin(), s.end(), rgx, 2 };
+          it != sregex_token_iterator{}; ++it) 
+    {
+      cout << format("{}\n", it->str());
+    }
+
+    // output ->
+    //  ABCD
+    //  BCDE
+    //  CDEF
+    //  DFAB
+
+    // -----------------------------------------------------
+
+    for ( sregex_token_iterator it{ s.begin(), s.end(), rgx, 3 };
+          it != sregex_token_iterator{}; ++it) 
+    {
+      cout << format("{}\n", it->str());
+    }
+
+    // output ->
+    //  5678
+    //  1234
+    //  6789
+    //  7890
+
+    // -----------------------------------------------------
+
+    for ( sregex_token_iterator it{ s.begin(), s.end(), rgx, {1, 2} };
+          it != sregex_token_iterator{}; ++it) 
+    {
+      cout << format("{}\n", it->str());
+    }
+
+    // output ->
+    //  1234    (index 1)
+    //  ABCD    (index 2)
+    //  5678    (index 1)
+    //  BCDE    (index 2)
+    //  2345    (index 1)
+    //  CDEF    (index 2)
+    //  3456    (index 1)
+    //  DFAB    (index 2)
+
+    // -----------------------------------------------------
+
+    // -1 index is for non matching parts
+
+    for ( sregex_token_iterator it{ s.begin(), s.end(), rgx, -1 };
+          it != sregex_token_iterator{}; ++it) 
+    {
+      cout << format("{}\n", it->str());
+    }
+
+    // output ->
+    //  abcd
+    //  efghi
+    //  jklm
+    //  nopqr
+    //  stuv
+    //  wxyz
+    //  efgh
+    //  ijklm
+    //  ...
+
+    // numbers.txt
+    //  abcd1234.ABCD.5678efghi     ---> abcd AND efghi 
+    //  jklm5678.BCDE.1234nopqr     ---> jklm AND nopqr
+    //  stuv2345.CDEF.6789wxyz      ---> stuv AND wxyz
+    //  efgh3456.DFAB.7890ijklm     ---> efgh AND ijklm
+
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+  // using regex_token_iterator for tokenizing a string
+
+  #include <string>
+  #include <regex>      // std::sregex_token_iterator
+  #include <format>
+
+  int main()
+  {
+    using namespace std;
+
+    string s{ "Monday, Tuesday, Wednesday.. Thursday! Friday." };
+
+    regex rgx{"[\\s,.!]+"};
+    // 1 or more whitespaces OR ',' OR '.' OR '!' characters (greedy)
+
+    for ( sregex_token_iterator it{ s.begin(), s.end(), rgx, -1 };
+          it != sregex_token_iterator{}; ++it) 
+    {
+      cout << format("{}\n", it->str());
+    }
+    // output ->
+    //  Monday
+    //  Tuesday
+    //  Wednesday
+    //  Thursday
+    //  Friday
+  }
+*/
+
+/*
+                      ----------------------
+                      | std::regex_replace |
+                      ----------------------
+*/
+
+/*
+  #include <string>
+  #include <regex>    // std::regex_iterator, std::regex_replace
+  #include <format>
+
+  int main()
+  {
+    using namespace std;
+
+    string str{ "zoosporangial outlive zoosporangium "
+                "zoospore disemploys zoosporic sculpts "
+                "zoosporocyst bowmaking zoosterol glacier" };
+
+    regex rgx{"\\b(zoo)([^ ]*)"};
+
+    // word boundary (LINE START)   +
+    // literally "zoo"              +         (1st capture group)
+    // 0 or more NON ' ' character (greedy)   (2nd capture group)
+
+
+    for (sregex_iterator iter{ str.begin(), str.end(), rgx };
+        iter != sregex_iterator{}; ++iter) 
+    {
+      cout << format("{:<20} - {} ({})\n", 
+                iter->str(), iter->str(1), iter->str(2));
+    }
+    // output ->
+    //  zoosporangial        - zoo (sporangial)
+    //  zoosporangium        - zoo (sporangium)
+    //  zoospore             - zoo (spore)
+    //  zoosporic            - zoo (sporic)
+    //  zoosporocyst         - zoo (sporocyst)
+    //  zoosterol            - zoo (sterol)
+
+    // ---------------------------------------------------------
+
+    auto s1 = regex_replace(str, rgx, "*");
+    // regex_replace function returns std::string
+    // putting '*' characters for each match
+
+    cout << format("[{}]\n", s1);
+    // output -> 
+    //  [* outlive * * disemploys * sculpts * bowmaking * glacier]
+
+    // ---------------------------------------------------------
+
+    auto s2 = regex_replace(str, rgx, "($1) _$2_");
+    // 1 index sub_match will have paranthesis
+    // 2 index sub_match will have underscore
+    // non matching parts will be as it is
+
+    cout << format("[{}]\n", s2);
+    // output ->
+    //  [(zoo) _sporangial_ outlive (zoo) _sporangium_ (zoo) 
+    //  _spore_ disemploys (zoo) _sporic_ sculpts (zoo) 
+    //  _sporocyst_ bowmaking (zoo) _sterol_ glacier]
+
+    // ---------------------------------------------------------
+
+    auto s3 = regex_replace(str, rgx, "$2$1");
+    
+    cout << format("[{}]\n", s3);
+    // output ->
+    //  [sporangialzoo outlive sporangiumzoo sporezoo disemploys 
+    //  sporiczoo sculpts sporocystzoo bowmaking sterolzoo glacier]
+
+    // ---------------------------------------------------------
+
+    auto s4 = regex_replace(str, rgx, "($`)");
+    // $` is for prefix sub_match object
+
+    cout << format("[{}]\n", s4);
+    // output ->
+    //  [() outlive ( outlive ) ( ) disemploys ( disemploys ) 
+    //  sculpts ( sculpts ) bowmaking ( bowmaking ) glacier]
+
+    // ---------------------------------------------------------
+
+    auto s5 = regex_replace(str, rgx, "($&)");
+    // $& is for whole matches
+
+    cout << format("[{}]\n", s5);
+    // output ->  
+    //  [(zoosporangial) outlive (zoosporangium) (zoospore) 
+    //  disemploys (zoosporic) sculpts (zoosporocyst) bowmaking 
+    //  (zoosterol) glacier]
+
+    // ---------------------------------------------------------
+  }
+*/
+
+/*
+  #include <string>
+  #include <regex>
+
+  int main()
+  {
+    std::string str{ "hello hello world world galaxy galaxy" };
+
+    std::regex rgx{ "\\b(\\w+)\\s+\\1"};
+
+    // word boundary (LINE START)           +
+    // 1 or more word character (greedy)    +   (1st capture group)
+    // 1 or more whitespaces    (greedy)    +
+    // literally 1st capture group
+
+    std::cout << std::regex_replace(str, rgx, "$1");
+    // output -> hello world galaxy
+
+    // "hello hello" is a match, "hello" is 1st capture group
+    // replacing match with 1st capture group
   }
 */

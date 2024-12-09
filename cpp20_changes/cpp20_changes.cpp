@@ -651,3 +651,203 @@
     // also in `ASpace` namespace
   }
 */
+
+/*
+              --------------------------------------
+              | conditionally explicit constructor |
+              --------------------------------------
+*/
+
+/*
+  class Myclass {
+  public:
+    explicit Myclass(int);
+  };
+
+  int main()
+  {
+    Myclass m1 = 10;  // syntax error
+    // error: conversion from 'int' to 
+    // non-scalar type 'Myclass' requested
+
+    // copy initialization is not allowed  
+    // when explicit constructor is used
+  }
+*/
+
+/*
+  // all constructors can be explicit
+
+  class Myclass {
+  public:
+    explicit Myclass(int, int);
+  };
+
+  int main()
+  {
+    Myclass m1 = { 11, 22 };  // syntax error
+    // error: converting to 'Myclass' from initializer list 
+    // would use explicit constructor 'Myclass::Myclass(int, int)'
+
+    m1 = { 33, 44 };          // syntax error
+    // error: converting to 'Myclass' from initializer list 
+    // would use explicit constructor 'Myclass::Myclass(int, int)'
+  }
+*/
+
+/*
+  // explicit default constructor is also possible
+
+  class Myclass {
+  public:
+    explicit Myclass();
+  };
+
+  Myclass foo()
+  {
+    return {};  // syntax error
+    // error: converting to 'Myclass' from initializer list 
+    // would use explicit constructor 'Myclass::Myclass()'
+  } 
+
+  int main()
+  {
+    Myclass m = {}; // syntax error
+    // error: converting to 'Myclass' from initializer list 
+    // would use explicit constructor 'Myclass::Myclass()'
+
+    m = {};   // syntax error
+    // error: converting to 'Myclass' from initializer list 
+    // would use explicit constructor 'Myclass::Myclass()'
+  }
+*/
+
+/*
+  // explicit(EXPR) when EXPR evaluated as true,
+  // Myclass(int) constructor will be an explicit constructor.
+  // when EXPR evaluated as false, Myclass(int) constructor
+  // will be a non-explicit constructor.
+
+  class AClass {
+  public:
+    explicit(true) AClass(int);
+  };
+
+  class BClass {
+  public:
+    explicit(false) BClass(int);
+  };
+
+  int main()
+  {
+    AClass a1 = 10;  // syntax error
+    // error: conversion from 'int' to 
+    // non-scalar type 'AClass' requested
+
+    BClass b1 = 20;  // VALID
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_integral
+
+  template <typename T>
+  class Myclass {
+  public:
+    explicit(std::is_integral_v<T>) Myclass(T);
+  };
+
+  int main()
+  {
+    Myclass<int> m1 = 12;       // syntax error
+    // error: conversion from 'int' to 
+    // non-scalar type 'Myclass<int>' requested
+
+    Myclass<double> m2 = 12.34; // VALID
+  }
+*/
+
+/*
+  #include <type_traits>  // std::is_convertible
+
+  class AClass {
+  public:
+    AClass();
+    explicit AClass(int);
+  };
+
+  class BClass {
+  public:
+    BClass();
+    BClass(int);
+  };
+
+  template <typename T>
+  class Wrapper {
+  private:
+    T m_wrapped;
+  public:
+    Wrapper();
+
+    template <typename U>
+    Wrapper(U);
+  };
+
+  template <typename T>
+  class Better_Wrapper {
+  private:
+    T m_wrapped;
+  public:
+    Better_Wrapper();
+
+    template <typename U>
+    explicit(!std::is_convertible_v<U, T>) Better_Wrapper(U);
+  };
+
+
+  int main()
+  {
+    // --------------------------------------------------
+
+    AClass a1 = 10;          // syntax error
+    // error: conversion from 'int' to 
+    // non-scalar type 'AClass' requested
+
+    Wrapper<AClass> w1 = 5;  // VALID
+
+    // conversion from int to AClass is syntax error
+    // but conversion from int to Wrapper<AClass> is VALID
+    // which is not a wanted behavior!
+
+    // --------------------------------------------------
+
+    AClass a2 = 11;                     // syntax error
+    // error: conversion from 'int' to 
+    // non-scalar type 'AClass' requested
+
+    Better_Wrapper<AClass> bw1 = 22;    // syntax error
+    // error: conversion from 'int' to 
+    // non-scalar type 'Better_Wrapper<AClass>' requested
+
+    // when conversion from int to AClass is not allowed
+    // conversion from int to 
+    // Better_Wrapper<AClass> is also not allowed
+
+    // --------------------------------------------------
+
+    BClass b1 = 33;                     // VALID
+    Better_Wrapper<BClass> bw2 = 44;    // VALID
+
+    // when conversion from int to BClass is allowed
+    // conversion from int to
+    // Better_Wrapper<BClass> is also allowed
+
+    // --------------------------------------------------
+  }
+*/
+
+// ---------------------------------------------------
+// ---------------------------------------------------
+// ---------------------------------------------------
+// ---------------------------------------------------
+// ---------------------------------------------------

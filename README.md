@@ -117,6 +117,7 @@
   - alias template deduction
   - `source_location` module 
   - `using` enum declaration
+  - conditionally `explicit` constructor
 
 ### [C++23 Changes](https://github.com/UPinar/AdvancedCPPLessons/tree/main/cpp23_changes)
   - explicit object parameter
@@ -155,6 +156,7 @@
   - Fast PIMPL idiom
   - copy-swap idiom
   - attorney-client idiom
+  - nifty counter idiom
   
 ### [Generic Programming](https://github.com/UPinar/AdvancedCPPLessons/tree/main/generic_programming)
   - template argument deduction
@@ -191,7 +193,7 @@
     - `std::throw_with_nested`
     - `std::rethrow_if_nested`
   
-### [`<regex>` module](https://github.com/UPinar/AdvancedCPPLessons/tree/main/regex_module)
+### [`<regex>` module (C++11)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/regex_module)
   - quantifiers
   - lazy or greedy quantifiers
   - anchor
@@ -215,3 +217,4 @@
   - `std::exchange` in <utility>
   - `std::clamp` in <algorithm>
   - deep constness
+  - file buffer to stream

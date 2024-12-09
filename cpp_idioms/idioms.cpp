@@ -2111,8 +2111,63 @@ int main()
   }
 */
 
+/*
+                      -----------------------
+                      | nifty counter idiom |
+                      -----------------------
+*/
+
+/*
+  - farklı modüllerde bulunan statik ömürlü nesnelerin
+    (global değişkenler ve sınıfların statik veri elemanları)
+    hayata gelme sıraları öngürelemez.(static initialization fiasco)
+
+  - bir modüldeki statik ömürlü bir varlık, constructorı içinde
+    başka bir modüldeki statik ömürlü bir varlığı kullanıyorsa
+    kullanmasın! çünkü hayata gelme sırası öngörülemez ve 
+    çöp değerde kullanma riski oluşabilir.
+
+  - örneğin cin, cout, cerr, wcin, wcout, wcerr...
+*/
+
+/*
+  class Myclass {
+  public:
+    Myclass()
+    {
+      std::cout << "Myclass::Myclass()\n";    
+      // "std::cout" is a static storage duration object.
+    }
+
+    ~Myclass()
+    {
+      std::cout << "Myclass::~Myclass()\n";
+      // "std::cout" is a static storage duration object.
+    }
+  };
+
+  Myclass g_m1; // global Myclass object
+  // g_m1 is a static storage duration object.
+
+  // output ->
+  //  Myclass::Myclass()
+  //  Myclass::~Myclass()
+
+  // before global Myclass object's construction,
+  // "std::cout" object has already been constructed.
+
+  // "std::cout" object are still alive
+  // after global Myclass object's destruction.
+*/
+
+/*
+              <--- check cpp_idioms/stream.h --->
+              <--- check cpp_idioms/stream.cpp --->
+*/
+
 // -----------------------------------------------------
 // -----------------------------------------------------
 // -----------------------------------------------------
 // -----------------------------------------------------
 // -----------------------------------------------------
+
