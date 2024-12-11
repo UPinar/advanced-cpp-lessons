@@ -1,9 +1,9 @@
 #include <iostream>
 
 /*
-                    ==========================
-                    | `regex` module (C++11) |
-                    ==========================
+                  ===============================
+                  | Regex (Regular expressions) |
+                  ===============================
 */
 
 /*
@@ -24,69 +24,101 @@
 /*
   --------------------------------------------------
 
-  a       -> all 'a' characters literrally
+  a   
+  literally 'a' character
 
   --------------------------------------------------
 
-  .       -> all characters but '\n' (metacharacter)
+  . (metacharacter)      
+  any character but '\n'
+
     T           (T)
     h           (h) 
     e           (e)
     .           (.)    
 
-                    ----------------
+  --------------------------------------------------
 
-  \.      -> '.' character literrally
+  \.     
+  literally '.' character
 
   --------------------------------------------------
 
-  [       -> not found (metacharacter)
-
-                    ----------------
-  
-  \[      -> '[' character literrally
-
-  --------------------------------------------------
-
-  \      -> not found (metacharacter)
+  [ (metacharacter)
 
                     ----------------
   
-  \\      -> '\' character literrally
+  \[      
+  literally '[' character
 
   --------------------------------------------------
 
-  d\.   -> d + '.' character
+  \ (metacharacter)
+
+                    ----------------
+  
+  \\      
+  literally '\' character
+
+  --------------------------------------------------
+
+  d\.
+
+  literally 'd'     +
+  literally '.'
+
     backyard.       (d + .)
     published.      (d + .)
 
   --------------------------------------------------
 
-  .d\.   -> d + '.' character
+  .d\.
+
+  any character but '\n'  +
+  literally 'd'           +
+  literally '.'
+
     bed.            (e + d + .)
 
   --------------------------------------------------
 
-  ta    -> all `ta` characters (case sensitive)
+  ta
+
+  literally "ta"
+
     talen
     take
 
   --------------------------------------------------
 
-  .a    -> any character but '\n' + a 
+  .a
+
+  any character but '\n'   + 
+  literally 'a'
+
     has             (h + a)
     just arrived    (space + a)
   
   --------------------------------------------------
 
-  t.e   -> t + any character but '\n' + e
+  t.e   
+
+  literally 't'           +
+  any character but '\n'  +
+  literally 'e'
+
     the                       (t + h + e)          
     therapist encouraged      (t + space + e)
     their                     (t + h + e)
 
   --------------------------------------------------
 
-  c.r  -> c + any character but '\n' + r
+  c.r  
+
+  literally 'c'           +
+  any character but '\n'  +
+  literally 'r'
+
     security                  (c + u + r)
     officer                   (c + e + r)
     car's                     (c + a + r)
@@ -98,11 +130,23 @@
 /*
   --------------------------------------------------
 
-  [abc]       -> a or b or c (only 1 character)
+  [abc]
+
+  literally 'a' or 'b' or 'c'
+
+    test            (t)
+    never           (e)
+    pages           (a)
+    party           (a) 
+    has             (a)
 
   --------------------------------------------------
 
-  [aer][trs]  -> (a or e or r) + (t or r or s)
+  [aer][trs]
+
+  literally 'a' or 'e' or 'r' + 
+  literally 't' or 'r' or 's'
+
     test            (e + s)
     never           (e + r)
     pages           (e + s)
@@ -112,6 +156,11 @@
   --------------------------------------------------
 
   [aer][trs][aekm]
+
+  literally 'a' or 'e' or 'r' +
+  literally 't' or 'r' or 's' +
+  literally 'a' or 'e' or 'k' or 'm'
+
     eaten          (a + t + e)
     cleared        (a + r + e)
     permits        (e + r + m)
@@ -122,13 +171,20 @@
 /*
   --------------------------------------------------
 
-  [a-e]      -> a or b or c or d or e (only 1 character)
+  [a-e]     
+
+  literally ('a' to 'e')
+
     patience        (a)
     test            (e)
 
   --------------------------------------------------
 
   [a-e][e-k]
+
+  literally ('a' to 'e') + 
+  literally ('e' to 'k')
+
     deck            (d + e)(c + k)
     change          (c + h)
     be              (b + e)
@@ -138,12 +194,18 @@
   --------------------------------------------------
 
   [0-9]
+
+  literally ('0' to '9')
+
     50              (5)(0)
     300             (3)(0)(0)
 
   --------------------------------------------------
 
   [mkr0-9A-F]
+
+  literally 'm' or 'k' or 'r' or ('0' to '9') or ('A' to 'F')
+
     redecorated     (r)(r)
     1.2             (1)(2)
     team            (m)
@@ -155,7 +217,10 @@
 /*
   --------------------------------------------------
 
-  [^abc]     -> not one of the characters in the set(a or b or c)
+  [^abc]
+
+  literally (NOT 'a') AND (NOT 'b') AND (NOT 'c')
+
     test            (t)(e)(s)(t)
     never           (n)(e)(v)(e)(r)
     pages           (p)(g)(e)(s)
@@ -165,6 +230,9 @@
   --------------------------------------------------
   
   [^0-9]
+
+  literally (NOT '0' to '9')
+
     every           (e)(v)(e)(r)(y)  
     charachter      (c)(h)(a)(r)(a)(c)(h)(t)(e)(r)
     other           (o)(t)(h)(e)(r)
@@ -174,6 +242,9 @@
   --------------------------------------------------
 
   [^0-9a-z]
+
+  literally (NOT '0' to '9') AND (NOT 'a' to 'z')
+
     We have          (' ')
     VIP              (V)(I)(P)  
     []               ([)(])
@@ -182,11 +253,19 @@
   --------------------------------------------------
 
   [\^]
+
+  literally '^'
+
     ^hello^          (^)(^)
 
   --------------------------------------------------
 
   [\^mr].[\^ks]
+
+  literally '^' or 'm' or 'r'   +
+  any character but '\n'        +
+  literally '^' or 'k' or 's'
+
     result            (res)
     cards             (rds)
     suprise           (ris) 
@@ -201,18 +280,28 @@
   --------------------------------------------------
 
   [0-9]
+
+  literally ('0' to '9')
+
     50              (5)(0)
     300             (3)(0)(0)
 
   --------------------------------------------------
 
   \d
+
+  digit [literally ('0' to '9')]
+
     50              (5)(0)
     300             (3)(0)(0)
 
   --------------------------------------------------
 
   d\d
+
+  literally 'd'   + 
+  digit(literally ('0' to '9'))
+
     ard93           (d9)
 
   --------------------------------------------------
@@ -224,6 +313,9 @@
   --------------------------------------------------
 
   [^0-9]
+
+  literally (NOT '0' to '9')
+
     every           (e)(v)(e)(r)(y)  
     charachter      (c)(h)(a)(r)(a)(c)(h)(t)(e)(r)
     other           (o)(t)(h)(e)(r)
@@ -233,6 +325,9 @@
   --------------------------------------------------
 
   \D
+
+  non-digit [literally (NOT '0' to '9')]
+
     every           (e)(v)(e)(r)(y)  
     charachter      (c)(h)(a)(r)(a)(c)(h)(t)(e)(r)
     other           (o)(t)(h)(e)(r)
@@ -242,6 +337,10 @@
   --------------------------------------------------
 
   \D\d
+
+  non-digit  +
+  digit
+
     $1.2           ($1)(.2)
     are 52         (" 5")
     ard93          (d9)
@@ -249,7 +348,11 @@
     30,000         (,0)
 
   --------------------------------------------------
-  [\dA-Fa-f] or [0-9A-Fa-f] -> hexadecimal characters
+
+  [\dA-Fa-f] -> hexadecimal characters
+
+  digit or ('A' to 'F') or ('a' to 'f')
+
   --------------------------------------------------
 */
 
@@ -263,12 +366,16 @@
 
 /*
   --------------------------------------------------
-  \w -> alphanumeric characters + '_'
+  \w -> alphanumeric characters + '_' (word characters)
   --------------------------------------------------
   \W -> non-alphanumeric characters - '_'
   --------------------------------------------------
 
   \d\w 
+
+  digit             + 
+  word character
+
     at9_8723jasd      (9_)(87)(23)
 
   --------------------------------------------------
@@ -299,33 +406,34 @@
 
   ka?r  
 
-  literally 'k'             +
-  literally 'a' or nothing  +
+  literally 'k'                     +
+  literally (0 or 1) 'a' character  +
   literally 'r'
 
-  kar             (kar)
-  kr              (kr)
+    kar             (kar)
+    kr              (kr)
 
   --------------------------------------------------
 
   [kts]a?[rmn]
 
-  one of the literally 'k' or 't' or 's'  +
-  literally 'a' or nothing                +
-  one of the literally 'r' or 'm' or 'n'
+  literally 'k' or 't' or 's'          +
+  literally (0 or 1) 'a' character     +
+  literally 'r' or 'm' or 'n'
 
-  kn              (kn)
-  kan             (kan)
+
+    kn              (kn)
+    kan             (kan)
 
   --------------------------------------------------
 
-  (ram)?\d      ->  (ram or nothing)(digit)
+  (ram)?\d
 
-  literally "ram" or nothing  +
+  literally (0 or 1) "ram"  + 
   digit
 
-  756             (7)(5)(6)
-  ram9            (ram9)
+    756             (7)(5)(6)
+    ram9            (ram9)
 
   --------------------------------------------------
 */
@@ -335,12 +443,19 @@
   (*) -> 0 or more
   --------------------------------------------------
 
-  r* 
+  r*
+
+  literally (0 or more) 'r' character
+
     rrrrr         (rrrrr)     
 
   --------------------------------------------------
 
   ah*
+
+  literally 'a' character  +
+  literally (0 or more) 'h' character
+
     a             (a)
     ah            (ah)
     ahh           (ahh)
@@ -350,11 +465,17 @@
 
   [krm]*
 
+  literally (0 or more) 'k' or 'r' or 'm' character
+
     kmkra       (kmkr)  
 
   --------------------------------------------------
 
   [xy]*a
+
+  literally (0 or more) 'x' or 'y' character  +
+  literally 'a' character
+
     a           (a)
     xya         (xya)
     xyxya       (xyxya)
@@ -368,6 +489,10 @@
   --------------------------------------------------
 
   [xy]+a
+
+  literally (1 or more) 'x' or 'y' character  +
+  literally 'a' character
+
     a           NOT MATCH
     xa          (xa)
     xya         (xya)
@@ -376,6 +501,9 @@
   --------------------------------------------------
 
   \d+
+
+  (1 or more) digits
+
     50          (50)
     300         (300)
 
@@ -385,7 +513,10 @@
 /*
   --------------------------------------------------
 
-  \d{4} -> exactly 4 digits
+  \d{4}
+
+  (exactly 4) digits
+
     1234          (1234)
     123           NOT MATCH
     12345         (1234)
@@ -393,7 +524,10 @@
 
   --------------------------------------------------
 
-  \d{2,} -> 2 or more digits
+  \d{2,}
+
+  (2 or more) digits
+
     1             NOT MATCH
     12            (12)
     123           (123)
@@ -403,7 +537,10 @@
 
   --------------------------------------------------
 
-  \d{3,4} -> 3 to 4 digits
+  \d{3,4}
+
+  (3 to 4) digits
+
     1             NOT MATCH
     12            NOT MATCH
     123           (123)
@@ -432,7 +569,9 @@
 /*
   --------------------------------------------------
 
-  /d+ -> 1 or more digits(greedy)
+  /d+
+
+  (1 or more) digits (greedy)
 
     1234567890              (1234567890)
     123456789012314123      (123456789012314123)
@@ -441,9 +580,9 @@
 
   3\.\d+   
 
-  3 digit               +
-  literally '.'         +
-  1 or more digits(greedy)
+  literally '3'                 +
+  literally '.'                 +
+  (1 or more) digits (greedy)
 
     3.14159                 (3.14159)
     4.132432                NO MATCH
@@ -453,68 +592,68 @@
 
   3\.\d+?
 
-  3 digit               +
-  literally '.'         +
-  1 or more digits(lazy)
+  literally '3'                 +
+  literally '.'                 +
+  (1 or more) digits (lazy)
 
-  3.14159                 (3.1)
-  4.132432                NO MATCH
-  3.1415926535            (3.1)
+    3.14159                 (3.1)
+    4.132432                NO MATCH
+    3.1415926535            (3.1)
 
   --------------------------------------------------
 
   3\.\d*?
 
-  3 digit               +
-  literally '.'         +
-  0 or more digits(lazy)
+  literally '3'                 +
+  literally '.'                 +
+  (0 or more) digits (lazy)
 
-  3.14159                 (3.)
-  4.132432                NO MATCH
-  3.1415926535            (3.)
+    3.14159                 (3.)
+    4.132432                NO MATCH
+    3.1415926535            (3.)
 
   --------------------------------------------------
 
   hello(world)?
 
-  literally "hello"     +
-  literally "world" or nothing  (greedy)
+  literally "hello"           +
+  literally (0 or 1) "world"
 
 
-  helloworld              (helloworld)
-  hello                   (hello)
-  hello123                (hello)
+    helloworld              (helloworld)
+    hello                   (hello)
+    hello123                (hello)
 
   --------------------------------------------------
 
   hello(world)??
 
-  literally "hello"     +
-  literally "world" or nothing  (lazy)
+  literally "hello"                 +
+  literally (0 or 1) "world" (lazy)
 
-  helloworld              (hello)
-  hello                   (hello)
-  hello123                (hello)
+    helloworld              (hello)
+    hello                   (hello)
+    hello123                (hello)
 
   --------------------------------------------------
 
   <.*>
 
-  literally '<'                   +
-  0 or more characters  (greedy)  + 
+  literally '<'                                   +
+  (0 or more) all characters but '\n' (greedy)    +
   literally '>'
 
-  <h4> hello world </h4>         (<h4> hello world </h4>)
+    <h4> hello world </h4>         (<h4> hello world </h4>)
 
   --------------------------------------------------
 
   <.*?>
 
-  literally '<'                   +
-  0 or more characters  (lazy)    +
+  literally '<'                               +
+  (0 or more) all characters but '\n' (lazy)  +
   literally '>'
 
-  <h4> hello world </h4>         (<h4>)
+    <h4> hello world </h4>         (<h4>)
 
   --------------------------------------------------
 */
@@ -537,11 +676,17 @@
   --------------------------------------------------
 
   ^kar 
+
+  literally "kar" at the beginning of the string
+
     |kar| kardelen reenkarnasyon kardes kardeslik sakar   ->  (kar)
 
   --------------------------------------------------
 
   kar$
+
+  literally "kar" at the end of the string
+
     far kardelen reenkarnasyon kardes kardeslik sa|kar|   ->  (kar)
 
   --------------------------------------------------
@@ -560,60 +705,82 @@
 
   --------------------------------------------------
 
-  \stor   -> (whitespace + tor)
+  \stor
 
-  tories         (tor)
-  torqued        (tor)
-  torso          (tor)  
+  whitespace        +
+  literally "tor"
 
-  --------------------------------------------------
-
-  tor\s   -> (tor + whitespace)  
-  transistor     (tor)
-  generator      (tor)
-  inventor       (tor)
+    |    tories         (tor)
+    |  torqued        (tor)
+    | torso          (tor)  
 
   --------------------------------------------------
 
-  \btor  (tor will be at the beginning of the word)
+  tor\s
 
-  tories         (tor)
-  torqued        (tor)
-  torso          (tor)
-
-  --------------------------------------------------
-
-  tor\b  (tor will be at the end of the word)
-
-  transistor     (tor)
-  inventor       (tor)
-  senator        (tor)
+  literally "tor"   +
+  
+    transistor |    (tor)
+    generator    |  (tor)
+    inventor |      (tor)
 
   --------------------------------------------------
 
-  \Btor  (tor will not be at the beginning of the word)
+  \btor
 
-  transistor     (tor)
-  tutorial       (tor)
-  generator      (tor)
-  mentorship     (tor)
+  word boundary(LINE START)  +
+  literally "tor"
 
-  --------------------------------------------------
-
-  tor\B  (tor will not be at the end of the word)
-
-  tutorial       (tor)
-  tories         (tor)
-  torqued        (tor)
+    tories         (tor)
+    torqued        (tor)
+    torso          (tor)
 
   --------------------------------------------------
 
-  \Btor\B  (tor will not be at the beginning and end of the word)
+  tor\b
 
-  tutorial       (tor)
-  restore        (tor)
-  victory        (tor)
-  factorial      (tor)
+  literally "tor"           +
+  word boundary(LINE END)
+
+    transistor     (tor)
+    inventor       (tor)
+    senator        (tor)
+
+  --------------------------------------------------
+
+  \Btor
+
+  NON word boundary(LINE START)  +
+  literally "tor"
+
+    transistor     (tor)
+    tutorial       (tor)
+    generator      (tor)
+    mentorship     (tor)
+
+  --------------------------------------------------
+
+  tor\B
+
+  literally "tor"             +
+  NON word boundary(LINE END)
+
+    tutorial       (tor)
+    tories         (tor)
+    torqued        (tor)
+
+  --------------------------------------------------
+
+  \Btor\B
+
+  NON word boundary(LINE START)  +
+  literally "tor"                 +
+  NON word boundary(LINE END)
+
+    tutorial       (tor)
+    restore        (tor)
+    victory        (tor)
+    factorial      (tor)
 
   --------------------------------------------------
 */
@@ -623,49 +790,53 @@
 
   \d{4}\.[A-F]{4}\.\d{4}
 
-  4 digits                            + 
+  (exactly 4) digits                  + 
   literally '.'                       + 
-  4 uppercase hexadecimal characters  +
+  (exactly 4) uppercase ('A' to 'F')  +
   literally '.'                       +
-  4 digits
+  (exactly 4) digits
 
-  (1234.ABCD.5678)
-  (4008.BDDF.6234)
+    (1234.ABCD.5678)
+    (4008.BDDF.6234)
 
   --------------------------------------------------
 
   \d{4}\.[A-F]{4}\.\d{4}\b
 
-  4 digits                            +
+  (exactly 4) digits                  +
   literally '.'                       +
-  4 uppercase hexadecimal characters  +
+  (exactly 4) uppercase ('A' to 'F')  +
   literally '.'                       +
-  4 digits                            +
+  (exactly 4) digits                  +
   word boundary(LINE END)
 
-  T2p1234.ABCD.5678     (1234.ABCD.5678)
-  K8yH4008.BDDF.6234    (4008.BDDF.6234)
+    T2p1234.ABCD.5678     (1234.ABCD.5678)
+    K8yH4008.BDDF.6234    (4008.BDDF.6234)
 
   --------------------------------------------------
 
   \d+ 
-  1 or more digits
+
+  (1 or more) digits
 
   --------------------------------------------------
 
   a\d+
-  a + 1 or more digits
 
-  fZ8ha3941       (a3941)
-  a8242           (a8242)
+  literally 'a'       + 
+  (1 or more) digits
+
+    fZ8ha3941       (a3941)
+    a8242           (a8242)
 
   --------------------------------------------------
 
   (a\d)+
-  1 or more times (a + digit)
 
-  8Ya3a110        (a3a1)
-  jwa8242         (a8)  
+  (1 or more) (literally 'a' + digit)  
+
+    8Ya3a110        (a3a1)
+    jwa8242         (a8)  
 
   --------------------------------------------------
 */
@@ -684,21 +855,21 @@
 
   (\d{4})\.([A-F]{4})\.(\d{4})
 
-  4 digits                            +
-  literally '.'                       +
-  4 uppercase hexadecimal characters  +
-  literally '.'                       +
-  4 digits
+  (exactly 4) digits                + (capture group 1)
+  literally '.'                     +
+  (exactly 4) ('A' to 'F')          + (capture group 2)
+  literally '.'                     +
+  (exactly 4) digits                  (capture group 3)
 
-  match = (1234.ABCD.5678) 
-  capture group 1 = (1234)
-  capture group 2 = (ABCD)
-  capture group 3 = (5678)
+    match = (1234.ABCD.5678) 
+    capture group 1 = (1234)
+    capture group 2 = (ABCD)
+    capture group 3 = (5678)
 
-  match = (4008.BDDF.6234)
-  capture group 1 = (4008)
-  capture group 2 = (BDDF)
-  capture group 3 = (6234)
+    match = (4008.BDDF.6234)
+    capture group 1 = (4008)
+    capture group 2 = (BDDF)
+    capture group 3 = (6234)
 
   --------------------------------------------------
 */
@@ -710,19 +881,19 @@
 
   (:?\d{4})\.([A-F]{4})\.(\d{4})
 
-  4 digits                            +
-  literally '.'                       +
-  4 uppercase hexadecimal characters  +
-  literally '.'                       +
-  4 digits
+  (exactly 4) digits                + (non-capturing group)
+  literally '.'                     +
+  (exactly 4) ('A' to 'F')          + (capture group 1)
+  literally '.'                     +
+  (exactly 4) digits                  (capture group 2)
 
-  match = (1234.ABCD.5678)
-  capture group 1 = (ABCD)
-  capture group 2 = (5678)
+    match = (1234.ABCD.5678)
+    capture group 1 = (ABCD)
+    capture group 2 = (5678)
 
-  match = (4008.BDDF.6234)
-  capture group 1 = (BDDF)
-  capture group 2 = (6234)
+    match = (4008.BDDF.6234)
+    capture group 1 = (BDDF)
+    capture group 2 = (6234)
 
   --------------------------------------------------
 */
@@ -739,35 +910,33 @@
   --------------------------------------------------
 
   (\d{3})car\1
-
-  3 digits          +
-  literally 'c'     +
-  literally 'a'     +
-  literally 'r'     +
+  
+  (exactly 3) digits          + (capture group 1)
+  literally "car"             +
   1st capture group
 
-  match = (123car123)
-  capture group 1 = (123)
+    match = (123car123)
+    capture group 1 = (123)
 
-  match = (456car456)
-  capture group 1 = (456)
+    match = (456car456)
+    capture group 1 = (456)
 
   --------------------------------------------------
 
   (\d{3})([A-F]{2})\1\2
 
-  3 digits                            +
-  2 hexadecimal upper case character  +
+  (exactly 3) digits                  + (capture group 1)
+  (exactly 2) ('A' to 'F')            + (capture group 2)
   1st capture group                   +
   2nd capture group
 
-  match = (123AF123AF)
-  capture group 1 = (123)
-  capture group 2 = (AF)
+    match = (123AF123AF)
+    capture group 1 = (123)
+    capture group 2 = (AF)
 
-  match = (456BC456BC)
-  capture group 1 = (456)
-  capture group 2 = (BC)
+    match = (456BC456BC)
+    capture group 1 = (456)
+    capture group 2 = (BC)
 
   --------------------------------------------------
 */
@@ -777,50 +946,50 @@
 
   .*([a-z]{3}).*\1
 
-  n characters but not '\n'           +
-  3 lowercase characters from a to z  +
-  n characters but not '\n'           +
+  (0 or more) any character but '\n' (greedy)   +
+  (exactly 3) ('a' to 'z')                      + (capture group 1)
+  (0 or more) any character but '\n' (greedy)   +
   1st capture group
 
-  Xanthinthique     
-  match = (Xanthinthi)
-  capture group 1 = (thi)
+    Xanthinthique     
+    match = (Xanthinthi)
+    capture group 1 = (thi)
 
-  Wunderkinder  
-  match = (Wunderkinder)
-  capture group 1 = (der)
+    Wunderkinder  
+    match = (Wunderkinder)
+    capture group 1 = (der)
 
   --------------------------------------------------
 
   .*([a-z]{3})[a-z]\1
 
-  n characters but not '\n'           +
-  3 lowercase characters from a to z  +
-  1 lowercase character from a to z   +
+  (0 or more) any character but '\n' (greedy)   +
+  (exactly 3) ('a' to 'z')                      + (capture group 1)
+  (exactly 1) ('a' to 'z')                      +
   1st capture group
 
-  wretchlessness
-  match = (wretchlessness)
-  capture group 1 = (ess)
+    wretchlessness
+    match = (wretchlessness)
+    capture group 1 = (ess)
 
   --------------------------------------------------
 
   .*([a-z]{2}).*\1.*\1
 
-  n characters but not '\n'           +
-  2 lowercase characters from a to z  +
-  n characters but not '\n'           +
-  1st capture group                   +
-  n characters but not '\n'           +
+  (0 or more) any character but '\n' (greedy)   +
+  (exactly 2) ('a' to 'z')                      + (capture group 1)
+  (0 or more) any character but '\n' (greedy)   +
+  1st capture group                             +
+  (0 or more) any character but '\n' (greedy)   +
   1st capture group
 
-  word-for-word
-  match = (word-for-wor)
-  capture group 1 = (or)
+    word-for-word
+    match = (word-for-wor)
+    capture group 1 = (or)
 
-  wine-drinking
-  match = (wine-drinkin)
-  capture group 1 = (in)
+    wine-drinking
+    match = (wine-drinkin)
+    capture group 1 = (in)
 
   --------------------------------------------------
 */
@@ -834,53 +1003,71 @@
 /*
   (car|tar)mal
 
-  literally 'c' + 'a' + 'r' OR literally 'm' + 'a' + 'l'  +
-  literally 'm' + 'a' + 'l'
+  literally "car" OR literally "tar"  +
+  literally "mal"
 
-  carmal         (carmal)
-  tarmal         (tarmal)
+    carmal         (carmal)
+    tarmal         (tarmal)
 */
 
 /*
   \b([1-9]|[12][0-9]|3[01])\b
 
-  word boundary (LINE START)                      + 
-  ( 1 digit from 1 to 9                           OR 
-    1 or 2 and 1 digit from 0 to 9                OR
-    3 and 0 or 1 )                                +
+  word boundary (LINE START)                          + 
+  (
+    ((exactly 1) ('1' to '9'))                    
+    OR
+    (('1' or '2') AND (exactly 1)('0' to '9'))    
+    OR
+    ((literally '3') AND (exactly 1)('0' or '1'))       
+  )                                                   +
   word boundary (LINE END)
 
-  (1) (2) (3)  ... (9)                       
-  (10) (11)   ... (19) 
-  (20) (21)   ... (29) 
-  (30) (31)       
-
-  matches days of month
+    (1) (2) (3)  ... (9)                       
+    (10) (11)   ... (19) 
+    (20) (21)   ... (29) 
+    (30) (31)       
+    matches days of month
 */
 
 /*
   \b([1-9]|1[0-2])\b
 
-  word boundary (LINE START)                      + 
-  ( 1 digit from 1 to 9                           OR 
-    1 and 0 or 1 or 2 )                           +
+  word boundary (LINE START)                          + 
+  ( 
+    ((exactly 1) ('1' to '9'))                 
+    OR
+    (literally '1'AND (exactly 1) ('0' to '2')) 
+  )                                                   +    
+  word boundary (LINE END)                
 
-  (1) (2) (3)  ... (9) (10) (11) (12)
-  
-  matches months of year
+    (1) (2) (3)  ... (9) (10) (11) (12)
+    matches months of year
 */
 
 /*
   \b([0-9]|[1-9][0-9]|[1-9][0-9][0-9])\b
   \b(\d|[1-9]\d|[1-9]\d{2})\b
 
-  word boundary (LINE START)                        + 
-  ( 1 digit from 0 to 9                             OR 
-    1 digit from 1 to 9 and 1 digit from 0 to 9     OR
-    1 digit from 1 to 9 and 2 digits from 0 to 9 )  +
+  word boundary (LINE START)        + 
+  ( 
+    (exactly 1) ('0' to '9')                
+    OR
+    (
+      (exactly 1) ('1' to '9')  
+      AND 
+      (exactly 1) ('0' to '9')
+    )                                       
+    OR
+    (
+      (exactly 1) ('1' to '9')  
+      AND 
+      (exactly 2) ('0' to '9') 
+    )
+  )                                 +
   word boundary (LINE END)
 
-  matches from (0) to (999)
+    matches from (0) to (999)
 */
 
 /*
@@ -899,22 +1086,22 @@
   literally "world"   +
   (only match "hello" if it is followed by "world")
 
-  aliens_helloworld       (hello)
-  aliens_hellogalaxy      NO MATCH
-  aliens_hellouniverse    NO MATCH
+    aliens_helloworld       (hello)
+    aliens_hellogalaxy      NO MATCH
+    aliens_hellouniverse    NO MATCH
 */
 
 /*
   hello(?=\d\d)     -> positive look ahead
 
-  literally "hello" +
-  2 digits          +
+  literally "hello"           +
+  (exactly 2) digits          +
   (only match "hello" if it is followed by 2 digits)
 
-  repeathello             NO MATCH
-  repeathello1            NO MATCH
-  repeathello12           (hello)
-  repeathello123          (hello)
+    repeathello             NO MATCH
+    repeathello1            NO MATCH
+    repeathello12           (hello)
+    repeathello123          (hello)
 */
 
 /*
@@ -924,10 +1111,10 @@
   literally "world"   +
   (only match "hello" if it is NOT followed by "world")
 
-  hello                   (hello)
-  aliens_helloworld       NO MATCH
-  aliens_hellogalaxy      (hello)
-  aliens_hellouniverse    (hello)
+    hello                   (hello)
+    aliens_helloworld       NO MATCH
+    aliens_hellogalaxy      (hello)
+    aliens_hellouniverse    (hello)
 */
 
 /*
@@ -937,9 +1124,9 @@
   literally "world"   +
   (only match "world" if it is preceded by "hello")
 
-  world                  NO MATCH
-  helloworld             (world)
-  hiworld                NO MATCH
+    world                  NO MATCH
+    helloworld             (world)
+    hiworld                NO MATCH
 */
 
 /*
@@ -961,9 +1148,9 @@
   literally "world"   +
   (only match "world" if it is NOT preceded by "hello")
 
-  helloworld          NO MATCH
-  bravenewworld       (world)
-  1world              (world)
+    helloworld          NO MATCH
+    bravenewworld       (world)
+    1world              (world)
 */
 
 /*
@@ -971,22 +1158,24 @@
 
   \d{5}(?:-\d{4})?
 
-  5 digits                +
-  0 or 1 of (literally '-' + 4 digits) (non-capturing group)
+  (exactly 5) digits                              +
+  (0 or 1) (literally '-' + (exactly 4) digits)   
+    (non-capturing group)
 
-  43215           (43215)
-  43215-1293      (43215-1293)
+    43215           (43215)
+    43215-1293      (43215-1293)
 */
 
 /*
   RGB color picker example: #000000 to #FFFFFF
 
   #(?:[\dA-Fa-f]{6}|[\dA-Fa-f]{3})
-
   literally '#'                                         +                      
-  6 characters from (0 to 9 and hexadecimal character)  OR
-  3 characters from (0 to 9 and hexadecimal character)  
-  (non-capturing group)
+  (
+    (exactly 6) (digit OR ('A' to 'Z') OR ('a' to 'f'))  
+    OR
+    (exactly 3) (digit OR ('A' to 'Z') OR ('a' to 'f'))
+  ) (non-capturing group)
 
   #AB1294     (#AB1294)
   #AB1        (#AB1)
@@ -996,9 +1185,9 @@
 */
 
 /*
-                      ---------------------
-                      | C++ regex library |
-                      ---------------------
+                    --------------------------
+                    | <regex> module (C++11) |
+                    --------------------------
 */
 
 /*
@@ -1021,8 +1210,8 @@
 
     // \d{4}\s{3}arm
 
-    //  4 digits        + 
-    //  3 whitespaces   + 
+    //  (exactly 4) digits        + 
+    //  (exactly 3) whitespaces   + 
     //  literally "arm"
 
     std::regex rgx1_1{ "\\d{4}\\s{3}arm" };
@@ -1117,7 +1306,7 @@
     regex rgx1{ "\\b[a-f]{4}tion" };
 
     // word boundary (LINE START)               +
-    // 4 to 7 lowercase characters from a to f  +
+    // (4 to 7) ('a' to 'f')                    +
     // literally "tion"
 
     for (const auto& word : vec) 
@@ -1159,8 +1348,8 @@
 
     regex rgx3{ "co.*ion" };
 
-    // literally "co"         +
-    // 0 or more characters   +
+    // literally "co"                       +
+    // (0 or more) any character but '\n'   +
     // literally "ion"
 
     for (const auto& word : vec) 
@@ -1214,9 +1403,9 @@
     std::string str{ "1234hello5678" };
 
     std::regex rgx{ "\\d{4}[a-z]{5}\\d{4}" };
-    // 4 digits               +
-    // 3 lowercase characters +
-    // 4 digits
+    // (exactly 4) digits         +
+    // (exactly 5) ('a' to 'z')   +
+    // (exactly 4) digits
 
     std::smatch sm;
 
@@ -1261,9 +1450,9 @@
     string str{ "1234hello5678" };
 
     regex rgx{ "(\\d{4})([a-z]{5})(\\d{4})" };
-    // 4 digits               +   (1st capture group)
-    // 3 lowercase characters +   (2nd capture group)
-    // 4 digits                   (3rd capture group)
+    // (exactly 4) digits         +   (1st capture group)
+    // (exactly 5) ('a' to 'z')   +   (2nd capture group)
+    // (exactly 4) digits             (3rd capture group)
 
     smatch sm;
 
@@ -1315,9 +1504,9 @@
     string str{ "1234hello5678" };
 
     regex rgx{ "(\\d{4})([a-z]{5})(\\d{4})" };
-    // 4 digits               +   (1st capture group)
-    // 3 lowercase characters +   (2nd capture group)
-    // 4 digits                   (3rd capture group)
+    // (exactly 4) digits         +   (1st capture group)
+    // (exactly 5) ('a' to 'z')   +   (2nd capture group)
+    // (exactly 4) digits             (3rd capture group)
 
     smatch sm;
 
@@ -1390,9 +1579,9 @@
     string str{ "1234hello5678" };
 
     regex rgx{ "(\\d{4})([a-z]{5})(\\d{4})" };
-    // 4 digits               +   (1st capture group)
-    // 3 lowercase characters +   (2nd capture group)
-    // 4 digits                   (3rd capture group)
+    // (exactly 4) digits         +   (1st capture group)
+    // (exactly 5) ('a' to 'z')   +   (2nd capture group)
+    // (exactly 4) digits             (3rd capture group)
 
     smatch sm;
 
@@ -1438,9 +1627,9 @@
     string str{ "1234hello5678" };
 
     regex rgx{ "(\\d{4})([a-z]{5})(\\d{4})" };
-    // 4 digits               +   (1st capture group)
-    // 3 lowercase characters +   (2nd capture group)
-    // 4 digits                   (3rd capture group)
+    // (exactly 4) digits         +   (1st capture group)
+    // (exactly 5) ('a' to 'z')   +   (2nd capture group)
+    // (exactly 4) digits             (3rd capture group)
 
     smatch sm;
 
@@ -1493,11 +1682,13 @@
     string line;
 
     regex rgx{ "([-+]?\\d*)\\.?(\\d+)" };
-
-    // literally '-' or '+' for 0 or 1 time +   (1st capture group)
-    // digits for 0 or more times           +   (1st capture group)
-    // literally '.' for 0 or 1 time        +
-    // digits for 1 or more times           +   (2nd capture group)
+    //  (
+    //    (0 or 1) literally ('-' or '+') 
+    //    AND  
+    //    (0 or more) digits 
+    //  )                                   +   (1st capture group)
+    // (0 or 1) any character but '\n'      +
+    // (1 or more) digits                   +   (2nd capture group)
 
     smatch sm;
 
@@ -1559,6 +1750,7 @@
     // -----------------------------------------------------
 
     std::regex rgx2{ "(hello) (world)" };
+
     // literally "hello"    +     (1st capture group)
     // literally ' '        + 
     // literally "world"          (2nd capture group)
@@ -1658,11 +1850,11 @@
 
     regex rgx{ "([krmnt]+)(ar)(\\w*)(in)(\\w*)" };
 
-    // 1 or more of 'k', 'r', 'm', 'n', 't'   +   (1st capture group)
-    // literally "ar"                         +   (2nd capture group)
-    // 0 or more word character               +   (3rd capture group)
-    // literally "in"                         +   (4th capture group)
-    // 0 or more word character                   (5th capture group)
+    // (1 or more) ('k' OR 'r' OR 'm' OR 'n' OR 't')  + (1CG)
+    // literally "ar"                                 + (2CG)
+    // (0 or more) word characters                    + (3CG)
+    // literally "in"                                 + (4CG)
+    // (0 or more) word characters                    + (5CG)
 
     smatch sm;
 
@@ -1718,11 +1910,11 @@
 
     regex rgx{ "(\\d{4})\\.([A-F]{4})\\.(\\d{4})" };
 
-    // 4 digits                       +   (1st capture group)
+    // (exactly 4) digits             +   (1st capture group)
     // literally '.'                  +
-    // 4 characters from'A' to 'F'    +   (2nd capture group)
+    // (exactly 4) ('A' to 'F')       +   (2nd capture group)
     // literally '.'                  +
-    // 4 digits                           (3rd capture group)
+    // (exactly 4) digits                 (3rd capture group)
 
     smatch sm;
     for (const auto& str : vec) {
@@ -2043,7 +2235,7 @@
     string s{ "Monday, Tuesday, Wednesday.. Thursday! Friday." };
 
     regex rgx{"[\\s,.!]+"};
-    // 1 or more whitespaces OR ',' OR '.' OR '!' characters (greedy)
+    // (1 or more) (whitespace OR ',' OR '.' OR '!') (greedy)
 
     for ( sregex_token_iterator it{ s.begin(), s.end(), rgx, -1 };
           it != sregex_token_iterator{}; ++it) 
@@ -2080,9 +2272,9 @@
 
     regex rgx{"\\b(zoo)([^ ]*)"};
 
-    // word boundary (LINE START)   +
-    // literally "zoo"              +         (1st capture group)
-    // 0 or more NON ' ' character (greedy)   (2nd capture group)
+    // word boundary (LINE START)               +
+    // literally "zoo"                          +   (1CG)
+    // (0 or more) NOT space character (greedy)     (2CG)
 
 
     for (sregex_iterator iter{ str.begin(), str.end(), rgx };
@@ -2166,10 +2358,10 @@
 
     std::regex rgx{ "\\b(\\w+)\\s+\\1"};
 
-    // word boundary (LINE START)           +
-    // 1 or more word character (greedy)    +   (1st capture group)
-    // 1 or more whitespaces    (greedy)    +
-    // literally 1st capture group
+    // word boundary (LINE START)             +
+    // (1 or more) word character (greedy)    + (1st capture group)
+    // (1 or more) whitespaces    (greedy)    +
+    // 1st capture group
 
     std::cout << std::regex_replace(str, rgx, "$1");
     // output -> hello world galaxy

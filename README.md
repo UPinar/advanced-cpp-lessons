@@ -193,7 +193,7 @@
     - `std::throw_with_nested`
     - `std::rethrow_if_nested`
   
-### [`<regex>` module (C++11)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/regex_module)
+### [Regex](https://github.com/UPinar/AdvancedCPPLessons/tree/main/regex)
   - quantifiers
   - lazy or greedy quantifiers
   - anchor
@@ -202,6 +202,24 @@
   - alternation
   - positive and negative look ahead
   - positive and negative look back
+  - `<regex>` module (C++11)
+    - `std::regex_match`
+    - `std::smatch`, `std::cmatch`
+    - `std::regex_search`
+    - `std::regex_iterator`
+    - `std::regex_token_iterator`
+    - `std::regex_replace`
+  
+### [Concurrency](https://github.com/UPinar/AdvancedCPPLessons/tree/main/concurrency)
+  - `std::thread`
+  - `std::this_thread` namespace
+    - `std::this_thread::sleep_for`
+    - `std::this_thread::get_id`
+    - `std::this_thread::sleep_until`
+    - `std::this_thread::yield`
+  - exception in threads
+  - move semantics in threads
+  - thread local storage class
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
