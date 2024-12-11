@@ -1325,6 +1325,13 @@
     işlemlerine gerek duyulmaz.
 
   - "thread_local" bir keyword.
+
+  - thread local değişkenler namespace scope ya da block scope
+    içerisinde tanımlanabilirler. 
+    namespace scope içerisinde tanımlanan thread local değişkenler
+    threadin ömrü boyunca yaşarlar.
+    block scope içerisinde tanımlanan thread local değişkenler
+    fonksiyonun çalışma süresince yaşarlar.
 */
 
 /*
@@ -1393,4 +1400,1835 @@
 
   // sending main thread's thread local variable's address 
   // to "func" function as argument.
+*/
+
+/*
+  #include <thread>
+  #include <string>
+  #include <syncstream>   // std::osyncstream
+
+  thread_local int gt_ival{ 0 };
+
+  void func(const std::string& thread_name)
+  {
+    ++gt_ival;  
+    // no need for synchronization 
+    // when thread_local variable is used.
+
+    std::osyncstream{ std::cout }
+      << "gt_ival in thread " << thread_name 
+      << " = " << gt_ival << '\n';
+
+    // synchronization for std::cout object will be done 
+    // with std::osyncstream class.
+  }
+
+  int main()
+  {
+    std::thread t1{ func, "t1" };
+    std::thread t2{ func, "t2" };
+    std::thread t3{ func, "t3" };
+    std::thread t4{ func, "t4" };
+
+    {
+      std::osyncstream{ std::cout }
+        << "gt_ival in main thread = " << gt_ival << '\n';
+    }
+
+    t1.join();
+    t2.join();
+    t3.join();
+    t4.join();
+
+    {
+      std::osyncstream{ std::cout }
+        << "gt_ival in main thread = " << gt_ival << '\n';
+    }
+
+    // output ->
+    //  gt_ival in main thread = 0
+    //  gt_ival in thread t1 = 1
+    //  gt_ival in thread t4 = 1
+    //  gt_ival in thread t2 = 1
+    //  gt_ival in thread t3 = 1
+    //  gt_ival in main thread = 0
+  }
+*/
+
+/*
+  #include <thread>
+  #include <string>
+  #include <mutex>  // std::lock_guard, std::mutex
+
+  int g_ival{ 0 };
+  std::mutex g_mtx;
+
+  void func(const std::string& thread_name)
+  {
+    std::lock_guard guard{ g_mtx };
+
+    ++g_ival;  
+
+    std::cout << "g_ival in thread " << thread_name 
+      << " = " << g_ival << '\n';
+  }
+
+  int main()
+  {
+    std::thread t1{ func, "t1" };
+    std::thread t2{ func, "t2" };
+    std::thread t3{ func, "t3" };
+    std::thread t4{ func, "t4" };
+
+    {
+      std::lock_guard guard{ g_mtx };
+      std::cout << "g_ival in main thread = " << g_ival << '\n';
+    }
+
+    t1.join();
+    t2.join();
+    t3.join();
+    t4.join();
+
+    {
+      std::lock_guard guard{ g_mtx };
+      std::cout << "g_ival in main thread = " << g_ival << '\n';
+    }
+
+    // output ->
+    //  g_ival in main thread = 0
+    //  g_ival in thread t3 = 1
+    //  g_ival in thread t1 = 2
+    //  g_ival in thread t4 = 3
+    //  g_ival in thread t2 = 4
+    //  g_ival in main thread = 4
+  }
+*/
+
+/*
+  - lock sınıfları RAII idiom'unu implemente ederler.
+  - constructor'larında bir mutex edinip, lock ederler.
+  - destructor'larında ise mutex'i unlock ederler.
+  - bir exception gönderilirse exception yakalandığında 
+    stack unwinding sürecinde destructor çağrılır ve
+    mutex unlock edilir.
+*/
+
+/*
+  #include <mutex> 
+  #include <thread>
+
+  std::mutex g_mtx;
+
+  void foo()
+  {
+    // ---------------------------------------------------
+    int ival = 0;           
+    // local variable (automatic storage duration)
+    // no need for synchronization
+    // all threads have their own stack space.
+
+    static int s_ival = 0;  
+    // static local variable (static storage duration)
+    // need to be synchronized
+    // shared among all threads (shared variable)
+
+    thread_local int t_ival = 0;
+    // thread local variable in block scope (thread storage duration)
+    // no need for synchronization
+
+    // ---------------------------------------------------
+
+    ++ival;
+    ++t_ival;
+
+    
+    g_mtx.lock();     // -----> critical section starts 
+
+    ++s_ival;
+    std::cout << "thread id = " << std::this_thread::get_id() 
+              << "\nautomatic storage ival = " << ival 
+              << "\nthread storage t_ival  = " << t_ival
+              << "\nstatic storage s_ival  = " << s_ival << "\n\n";
+
+    g_mtx.unlock();   // -----> critical section ends
+    
+    // ++s_ival and std::cout objects are in a critical section
+    // because they both are shared among all threads.
+    
+    // when a thread enters to a critical section,
+    // it will lock the mutex object,
+    // so other threads can not enter the critical section
+    // before the mutex is unlocked.
+    // this is called mutual exclusion.
+    // if unlock is not called, the mutex will be locked forever,
+    // which is called deadlock.
+
+    // after the thread is done with the critical section,
+    // it will unlock the mutex and changes that has been done 
+    // will be published, so another thread 
+    // will be aware of that changes and 
+    // can acquire the lock and enter the critical section.
+
+    // ---------------------------------------------------
+  }
+
+  int main()
+  {
+    std::thread t1{ foo };
+    std::thread t2{ foo };
+    std::thread t3{ foo };
+    std::thread t4{ foo };
+
+    t1.join();
+    t2.join();
+    t3.join();
+    t4.join();
+
+    // output ->
+    //  thread id = 4
+    //  automatic storage ival = 1
+    //  thread storage t_ival  = 1
+    //  static storage s_ival  = 1
+    //  
+    //  thread id = 5
+    //  automatic storage ival = 1
+    //  thread storage t_ival  = 1
+    //  static storage s_ival  = 2
+    //  
+    //  thread id = 3
+    //  automatic storage ival = 1
+    //  thread storage t_ival  = 1
+    //  static storage s_ival  = 3
+    //  
+    //  thread id = 2
+    //  automatic storage ival = 1
+    //  thread storage t_ival  = 1
+    //  static storage s_ival  = 4
+  }
+*/
+
+/*
+  #include <thread>
+  #include <string>
+  #include <syncstream>   // std::osyncstream
+  #include <vector>
+
+  thread_local std::string g_t_str{ "Hello" };
+
+  void func(const std::string& str)
+  {
+    g_t_str += str;
+
+    std::osyncstream o_cout{ std::cout };
+    o_cout  << "thread id = " << std::this_thread::get_id() 
+            << ", g_t_str = " << g_t_str << '\n';
+
+    o_cout << "address of g_t_str = " << &g_t_str << "\n\n";
+
+  }
+
+  int main()
+  {
+    const char* const str_arr[] = { "World", "Galaxy", "Universe" };
+
+    std::vector<std::thread> t_vec;
+
+    for (auto str : str_arr)
+      t_vec.emplace_back(func, str);
+
+    for (auto& tx : t_vec)
+      tx.join();
+    // output ->
+    //  thread id = 3, g_t_str = HelloGalaxy
+    //  address of g_t_str = 0x299837aa558
+    //  
+    //  thread id = 2, g_t_str = HelloWorld
+    //  address of g_t_str = 0x299837aa708
+    //  
+    //  thread id = 4, g_t_str = HelloUniverse
+    //  address of g_t_str = 0x299837aa0d8
+  }
+*/
+
+/*
+  #include <thread>
+  #include <string>
+  #include <syncstream>   // std::osyncstream
+  #include <vector>
+
+  std::string g_str{ "Hello" };   // global shared variable
+  std::mutex mtx;
+
+  void func(const std::string& str)
+  {
+    std::lock_guard guard{ mtx };
+
+    g_str += str;
+
+    std::cout << "thread id = " << std::this_thread::get_id() 
+              << ", g_str = " << g_str << '\n';
+
+    std::cout << "address of g_str = " << &g_str << "\n\n";
+  }
+
+  int main()
+  {
+    const char* const str_arr[] = { "World", "Galaxy", "Universe" };
+
+    std::vector<std::thread> t_vec;
+
+    for (auto str : str_arr)
+      t_vec.emplace_back(func, str);
+
+    for (auto& tx : t_vec)
+      tx.join();
+    // output ->
+    //  thread id = 4, g_str = HelloUniverse
+    //  address of g_str = 0x7ff61f72a020
+    //  
+    //  thread id = 3, g_str = HelloUniverseGalaxy
+    //  address of g_str = 0x7ff61f72a020
+    //  
+    //  thread id = 2, g_str = HelloUniverseGalaxyWorld
+    //  address of g_str = 0x7ff61f72a020
+  }
+*/
+
+/*
+  #include <syncstream>   // std::osyncstream
+  #include <thread>       // std::this_thread::sleep_for
+  #include <chrono>
+
+  class Myclass {
+  public:
+    Myclass() 
+    { 
+      std::osyncstream{ std::cout } 
+        << "Myclass::Myclass(), this = " << this << '\n';
+    }
+
+    ~Myclass() 
+    { 
+      std::osyncstream{ std::cout } 
+        << "Myclass::~Myclass(), this = " << this << '\n';
+    }
+  };
+
+  void foo()
+  {
+    std::osyncstream{ std::cout } 
+      << "foo() started\n";
+
+    thread_local Myclass t_m1;  
+
+    std::osyncstream{ std::cout } 
+      << "foo() finished\n";
+  }
+
+  void bar()
+  {
+    using namespace std::chrono_literals;
+
+    std::osyncstream{ std::cout } 
+      << "bar() started\n";
+
+    foo();
+    std::this_thread::sleep_for(2s);
+
+    std::osyncstream{ std::cout } 
+      << "bar() finished\n";
+  }
+
+  int main()
+  {
+    std::cout << "[0] - main thread started\n";
+
+    std::thread tx{ bar };
+    tx.join();
+
+    std::cout << "[1] - main thread finished\n";
+  }
+
+  // output ->
+  //  [0] - main thread started
+  //  bar() started
+  //  foo() started
+  //  Myclass::Myclass(), this = 0x144d4f90ba8
+  //  foo() finished
+  //  bar() finished
+  //  Myclass::~Myclass(), this = 0x144d4f90ba8
+  //  [1] - main thread finished
+*/
+
+/*
+  #include <syncstream>   // std::osyncstream
+  #include <thread>
+
+  class Myclass {
+  public:
+    Myclass() 
+    { 
+      std::osyncstream{ std::cout } 
+        << "Myclass::Myclass(), this = " << this << '\n';
+    }
+
+    ~Myclass() 
+    { 
+      std::osyncstream{ std::cout } 
+        << "Myclass::~Myclass(), this = " << this << '\n';
+    }
+  };
+
+  void foo()
+  {
+    std::osyncstream{ std::cout } 
+      << "foo() started\n";
+
+    thread_local Myclass t_m1;  
+
+    std::osyncstream{ std::cout } 
+      << "foo() finished\n";
+  }
+
+  void bar()
+  {
+    using namespace std::chrono_literals;
+
+    std::osyncstream{ std::cout } 
+      << "bar() started\n";
+
+    foo();
+
+    std::osyncstream{ std::cout } 
+      << "bar() finished\n";
+  }
+
+  int main()
+  {
+    std::cout << "[0] - main thread started\n";
+    
+    std::thread t1{ bar };
+    std::thread t2{ bar };
+    std::thread t3{ bar };
+
+    t1.join();
+    t2.join();
+    t3.join();
+
+    std::cout << "[1] - main thread finished\n";
+  }
+
+  // output ->
+  //  [0] - main thread started
+  //  bar() started
+  //  bar() started
+  //  foo() started
+  //  bar() started
+  //  foo() started
+  //  Myclass::Myclass(), this = 0x21c48387c08    : (1)
+  //  foo() started
+  //  Myclass::Myclass(), this = 0x21c48388048    : (2)
+  //  foo() finished
+  //  bar() finished
+  //  foo() finished
+  //  bar() finished
+  //  Myclass::~Myclass(), this = 0x21c48388048   : (~1)
+  //  Myclass::Myclass(), this = 0x21c48387be8    : (3)
+  //  foo() finished
+  //  bar() finished
+  //  Myclass::~Myclass(), this = 0x21c48387c08   : (~2)
+  //  Myclass::~Myclass(), this = 0x21c48387be8   : (~3)
+  //  [1] - main thread finished
+*/
+
+/*
+  #include <mutex>
+  #include <thread>
+  #include <vector>
+
+  int g_ival;       // global shared variable
+  std::mutex g_mtx;
+
+  void func(char ch)
+  {
+    std::lock_guard guard{ g_mtx };
+
+    ++g_ival;
+    std::cout << "ch = " <<ch << " - " << g_ival << '\n';
+  }
+
+  int main()
+  {
+    std::vector<std::thread> t_vec;
+
+    for (char ch = 'a'; ch <= 'z'; ++ch)
+      t_vec.emplace_back(func, ch);
+
+    for (auto& tx : t_vec)
+      tx.join();
+
+    // output ->
+    //  ch = a - 1
+    //  ch = c - 2
+    //  ch = d - 3
+    //  ch = e - 4
+    //  ch = b - 5
+    //  ch = r - 6
+    //  ch = g - 7
+    //  ch = h - 8
+    //  ch = i - 9
+    //  ch = j - 10
+    //  ch = k - 11
+    //  ch = l - 12
+    //  ch = m - 13
+    //  ch = n - 14
+    //  ch = o - 15
+    //  ch = p - 16
+    //  ch = q - 17
+    //  ch = f - 18
+    //  ch = t - 19
+    //  ch = u - 20
+    //  ch = v - 21
+    //  ch = x - 22
+    //  ch = w - 23
+    //  ch = y - 24
+    //  ch = z - 25
+    //  ch = s - 26
+
+    // threads(sent characters) are executed 
+    // in a non-deterministic order.
+  }
+*/
+
+/*
+  #include <mutex>
+  #include <thread>
+  #include <vector>
+
+  thread_local int g_t_ival{};     
+  // thread local variable in global namespace scope
+  std::mutex g_mtx;
+
+  void func(char ch)
+  {
+    ++g_t_ival;
+
+    std::lock_guard guard{ g_mtx };
+    std::cout << "ch = " <<ch << " - " << g_t_ival << '\n';
+  }
+
+  int main()
+  {
+    std::vector<std::thread> t_vec;
+
+    for (char ch = 'a'; ch <= 'z'; ++ch)
+      t_vec.emplace_back(func, ch);
+
+    for (auto& tx : t_vec)
+      tx.join();
+
+    // output ->
+    //  ch = a - 1
+    //  ch = c - 1
+    //  ch = l - 1
+    //  ch = f - 1
+    //  ch = e - 1
+    //  ch = g - 1
+    //  ch = h - 1
+    //  ch = i - 1
+    //  ch = d - 1
+    //  ch = j - 1
+    //  ch = k - 1
+    //  ch = b - 1
+    //  ch = m - 1
+    //  ch = n - 1
+    //  ch = o - 1
+    //  ch = p - 1
+    //  ch = q - 1
+    //  ch = r - 1
+    //  ch = s - 1
+    //  ch = t - 1
+    //  ch = u - 1
+    //  ch = v - 1
+    //  ch = w - 1
+    //  ch = y - 1
+    //  ch = x - 1
+    //  ch = z - 1
+
+    // threads(sent characters) are executed 
+    // in a non-deterministic order.
+  }
+*/
+
+/*
+  #include <random>
+  // std::uniform_int_distribution, std::mt19937 
+  #include <thread>
+
+
+  thread_local std::mt19937 g_t_eng{ 1928394854u };
+  // thread local variable in global namespace scope
+
+  void func()
+  {
+    std::uniform_int_distribution dist{ 100, 999 };
+
+    for (int i = 0; i < 10; ++i) 
+      std::cout << dist(g_t_eng) << ' ';
+    std::cout << '\n';
+  }
+
+  int main()
+  {
+    std::thread t1{ func };
+    t1.join();
+    // output -> 994 125 359 471 607 267 861 524 161 790
+
+    std::thread t2{ func };
+    t2.join();
+    // output -> 994 125 359 471 607 267 861 524 161 790
+  }
+*/
+
+/*
+  #include <random>
+  // std::uniform_int_distribution, std::mt19937 
+  #include <thread>
+  #include <syncstream>   // std::osyncstream
+
+
+  thread_local std::mt19937 g_t_eng{ 1928394854u };
+  // thread local variable in global namespace scope
+
+  void func()
+  {
+    std::uniform_int_distribution dist{ 100, 999 };
+    // local variable, no need for synchronization
+
+    std::osyncstream o_cout{ std::cout };
+
+    for (int i = 0; i < 10; ++i) 
+      o_cout << dist(g_t_eng) << ' ';
+    o_cout << '\n';
+  }
+
+  int main()
+  {
+    std::thread t1{ func };
+    std::thread t2{ func };
+    std::thread t3{ func };
+
+    t1.join();
+    t2.join();
+    t3.join();
+
+    // output ->
+    //  994 125 359 471 607 267 861 524 161 790
+    //  994 125 359 471 607 267 861 524 161 790
+    //  994 125 359 471 607 267 861 524 161 790
+  }
+*/
+
+/*
+  #include <random>
+  // std::uniform_int_distribution, std::mt19937 
+  #include <thread>
+  #include <mutex>
+
+  std::mt19937 g_t_eng{ 1928394854u };  // shared global variable 
+  std::mutex g_mtx;
+
+  void func()
+  {
+    std::uniform_int_distribution dist{ 100, 999 };
+    // local variable, no need for synchronization
+
+    std::lock_guard guard{ g_mtx };
+
+    for (int i = 0; i < 10; ++i) 
+      std::cout << dist(g_t_eng) << ' ';
+    std::cout  << '\n';
+  }
+
+  int main()
+  {
+    std::thread t1{ func };
+    std::thread t2{ func };
+    std::thread t3{ func };
+
+    t1.join();
+    t2.join();
+    t3.join();
+
+    // output ->
+    //  994 125 359 471 607 267 861 524 161 790
+    //  358 728 381 593 210 693 916 181 245 281
+    //  174 447 864 551 163 846 497 229 970 331
+  }
+*/
+
+/*
+                      ----------------------
+                      | std::jthread class |
+                      ----------------------
+*/
+
+/*
+  #include <thread>   // std::jthread
+
+  void func(){}
+
+  int main()
+  {
+    std::cout << "[0] - main thread started\n";
+
+    {
+      std::jthread jt1{ func };
+    }
+
+    std::cout << "[1] - main thread finished\n";
+  }
+  // output ->
+  //  [0] - main thread started
+  //  [1] - main thread finished
+
+  // no need to call join or detach member functions
+  // for std::jthread object.
+*/
+
+/*
+  #include <thread>
+  #include <stdexcept>  // std::runtime_error
+
+  void func(){}
+
+  int main()
+  {
+    std::cout << "[0] - main thread started\n";
+
+    {
+      try {
+        std::thread t1{ func };
+        throw std::runtime_error{ "__error__" };
+        t1.join();
+      }
+      catch (const std::exception& ex) {
+        std::cout << "exception caught : " << ex.what() << '\n';
+      }
+    }
+
+    std::cout << "[1] - main thread finished\n";
+  }
+
+  // output ->
+  //  [0] - main thread started
+  //  terminate called without an active exception
+
+  // because of the exception thrown before calling join
+  // member function of the std::thread object,
+  // join member function can not be called and
+  // std::terminate is called.
+*/
+
+/*
+  #include <thread>     // std::jthread
+  #include <stdexcept>  // std::runtime_error
+
+  void func(){}
+
+  int main()
+  {
+    std::cout << "[0] - main thread started\n";
+
+    {
+      try {
+        std::jthread jt1{ func };
+        throw std::runtime_error{ "__error__" };
+      }
+      catch (const std::exception& ex) {
+        std::cout << "exception caught : " << ex.what() << '\n';
+      }
+    }
+
+    std::cout << "[1] - main thread finished\n";
+  }
+
+  // output ->
+  //  [0] - main thread started
+  //  exception caught : __error__
+  //  [1] - main thread finished
+
+  // in stack unwinding process, destructor of the std::jthread
+  // will call join member function wrapped std::thread object
+*/
+
+/*
+  // Concurrency in Action book jthread implementation 
+
+  #include <thread>
+  #include <utility>  // std::forward, std::move
+
+  class JThread {
+  private:
+    std::thread m_thread;
+
+  public:
+    JThread() noexcept = default;
+
+    template <typename Callable, typename... Args>
+    explicit JThread(Callable&& func, Args&&... args)
+      : m_thread{ std::forward<Callable>(func), 
+                  std::forward<Args>(args)... } 
+    {}
+
+    explicit JThread(std::thread other_thread) noexcept
+      : m_thread{ std::move(other_thread) } 
+    {}
+
+    // move constructor
+    JThread(JThread&& other_JThread) noexcept
+      : m_thread{ std::move(other_JThread.m_thread) } 
+    {}
+
+    // move assignment operator
+    JThread& operator=(JThread&& other_JThread) noexcept
+    {
+      if (joinable())
+        join();
+
+      m_thread = std::move(other_JThread.m_thread);
+      return *this;
+    }
+
+    JThread& operator=(std::thread other_thread) noexcept
+    {
+      if (joinable())
+        join();
+
+      m_thread = std::move(other_thread);
+      return *this;
+    }
+
+    ~JThread() noexcept
+    {
+      if (joinable())
+        join();
+    }
+
+    void swap(JThread& other_JThread) noexcept
+    {
+      m_thread.swap(other_JThread.m_thread);
+    }
+
+    std::thread::id get_id() const noexcept
+    {
+      return m_thread.get_id();
+    }
+
+    bool joinable() const noexcept
+    {
+      return m_thread.joinable();
+    }
+
+    void join()
+    {
+      m_thread.join();
+    }
+
+    void detach()
+    {
+      m_thread.detach();
+    }
+
+    std::thread& as_thread() noexcept
+    {
+      return m_thread;
+    }
+
+    const std::thread& as_thread() const noexcept
+    {
+      return m_thread;
+    }
+  };
+*/
+
+/*
+  #include <thread>
+  #include <stop_token>   // std::stop_source, std::stop_token
+  #include <chrono>
+  #include <syncstream>   // std::osyncstream
+
+  int main()
+  {
+    using namespace std::literals;
+
+    std::stop_source st_src;
+
+    std::thread t1{ [s_token = st_src.get_token()](){
+        while (!s_token.stop_requested()) 
+        {
+          std::cout.put('*');
+          std::this_thread::sleep_for(100ms);
+        }
+      }
+    };
+
+    std::thread t2{ [s_token = st_src.get_token()](){
+        while (!s_token.stop_requested()) 
+        {
+          std::cout.put('_');
+          std::this_thread::sleep_for(100ms);
+        }
+      }
+    };
+
+    std::thread t3{ [s_token = st_src.get_token()](){
+        while (!s_token.stop_requested()) 
+        {
+          std::cout.put('!');
+          std::this_thread::sleep_for(100ms);
+        }
+      }
+    };
+
+    std::this_thread::sleep_for(2s);
+
+    std::osyncstream{ std::cout } 
+      << "\nsending stop request to thread\n";
+
+    st_src.request_stop();
+
+    std::cout << "thread stopped\n";
+
+    t1.join();
+    t2.join();
+    t3.join();
+  }
+  // output ->
+  //  *!_!*_*!__*!_*!*_!!*_*!_*!_!_**!__!*_!*_*!_!**!_*_!*_!*_!
+  //  sending stop request to thread
+  //  thread stopped
+*/
+
+/*
+  std::jthread class have those member functions 
+  which are not available in std::thread class.
+  - request_stop
+  - get_stop_source
+  - get_stop_token
+
+  if std::jthread's workload's first parameter's type is 
+  std::stop_token;
+  std::jthread will create a std::stop_source object
+  gets a std::stop_token object from that std::stop_source object
+  with "get_token" member function and passes 
+  that std::stop_token object to its workload as an argument.
+*/
+
+/*
+  #include <thread>
+  #include <chrono>
+  #include <stop_token>   // std::stop_token
+  #include <syncstream>   // std::osyncstream
+
+  int main()
+  {
+    using namespace std::literals;
+
+    std::jthread jt1{
+      [](std::stop_token s_token){
+        while (!s_token.stop_requested()) 
+        {
+          std::cout.put('*');
+          std::this_thread::sleep_for(100ms);
+        }
+      }
+    };
+
+    std::jthread jt2{
+      [](std::stop_token s_token){
+        while (!s_token.stop_requested()) 
+        {
+          std::cout.put('_');
+          std::this_thread::sleep_for(100ms);
+        }
+      }
+    };
+
+    std::jthread jt3{
+      [](std::stop_token s_token){
+        while (!s_token.stop_requested()) 
+        {
+          std::cout.put('!');
+          std::this_thread::sleep_for(100ms);
+        }
+      }
+    };
+
+    std::this_thread::sleep_for(2s);
+
+    std::osyncstream{ std::cout } 
+      << "\nsending stop request to thread\n";
+
+    jt1.request_stop();
+    jt2.request_stop();
+    jt3.request_stop();
+
+    std::cout << "thread stopped\n";
+  }
+  // output ->
+  //  *!_!_*_!**!__*!_*!_*!_!*!*_!*_!_*_*!_!*!*__!*_!*!_**_!_*!
+  //  sending stop request to thread
+  //  thread stopped
+*/
+
+/*
+                  ---------------------------
+                  | mutual exclusion(mutex) |
+                  ---------------------------
+*/
+
+/*
+  threadler genel olarak paylaşılan nesneleri kullanıyorlar.
+
+  bütün threadler, paylaşılan değişkene okuma amaçlı(read-only)
+  erişiyorlar ise bu durumda bir sorun oluşmaz ve senkronizasyon
+  mekanizmasına ihtiyaç duyulmaz.
+
+  en az 1 thread yazma amaçlı kullanıyorsa, data race problemi
+  oluşabilir.
+
+  örneğin bir thread, paylaşılan bir değişkene yazma işlemi 
+  gerçekleştiriyor ve işlem bitmeden başka bir thread 
+  bu değişkeni okumaya çalışıyor.
+  Değişken half written state'te bulunduğu için okuma işlemi
+  tanımsız davranış(undefined behavior) oluşurturur.
+
+  farklı threadlerdeki akışlar deterministik değil.
+  threadlerin tasklarının öncelik sırası program için 
+  bir fark yaratmıyor ise, race condition benign(iyi huylu)
+*/
+
+/*
+  int g_x = 55;
+
+  void print_abs(int val){}
+
+  void bar()
+  {
+    if (g_x > 0)
+      print_abs(g_x);
+    else
+      print_abs(-g_x);
+  }
+
+  - bir thread bar fonksiyonunda "g_x" değişkenin okuyup 
+    değişkenin negatif olduğunu anlayıp "print_abs" 
+    fonksiyonuna -g_x değerini gönderiyor.
+    
+  - "print_abs" fonksiyonun kodu koşmaya başlamadan önce 
+    başka bir thread ortak kullanılan "g_x" değişkeninin 
+    değerini pozitif bir değer yapıyor. 
+    dolayısıyla bir önceki threadin gönderdiği -g_x değeri
+    fonksiyonun kodu koşmaya başladığında yanlış bir değer oluyor.
+
+  - veya işletim sistemi ve değişkenin türüne bağlı olarak 
+    yazma işlemi henüz bitmemiş ve ilk thread'den çağrılan 
+    "print_abs" fonksiyonunda "g_x" değişkeni okunmaya 
+    çalışıldığında half written state'te bulunan bir 
+    değişken okunmaya çalışılmış olur(tanımsız davranış).  
+*/
+
+/*
+  #include <vector>
+
+  std::vector<int> g_ivec;
+
+  void foo()
+  {
+    if (!g_ivec.empty())
+      auto val = g_ivec.front();
+  }
+
+  // calling "front" member function of an empty vector
+  // is undefined behavior(UB).
+
+  - g_ivec paylaşımlı bir değişken ve 1 elemana sahipken 
+    ilk thread "foo" fonksiyonunu çağırıyor if döngüsünde
+    g_ivec'in boş olmadığı anlaşılıyor. 
+    Tam bu esnada başka bir thread g_ivec'in elemanını
+    siliyor ve g_ivec boşalıyor.
+    Bu durumda ilk thread "front" member function'u 
+    çağrıldığında tanımsız davranış(UB) oluşur.
+*/
+
+/*
+  critical section : 
+    öyle bir kod bloğu var ki bu bloğu birden fazla thread'in
+    aynı anda koşmasını istemiyoruz.
+  
+  mutual exclusion :
+    threadlerin bir mutex'i birlikte(mutual) olarak kullanması
+    ve bir thread critical section'a girdiğinde diğer threadlerin
+    hep birlikte beklemesi.
+
+  mutex : 
+    iki state'e sahip olabilir.
+    - locked    (kilit bir thread tarafında edinilmiş(acquired).)
+    - unlocked  (kilit serbest bırakılmış(released).)
+*/
+
+/*
+  #include <mutex>
+
+  std::mutex g_mtx;
+
+  void foo()
+  {
+    g_mtx.lock();
+    // critical section
+    // critical section
+    // critical section
+    g_mtx.unlock();
+  }
+*/
+
+/*
+  #include <vector>
+  #include <thread>
+
+  long long int g_llval{};
+
+  void foo()
+  {
+    for(int i = 0; i < 1'000'000; ++i)
+      ++g_llval;  
+  }
+
+  int main()
+  {
+    std::vector<std::thread> t_vec;
+
+    for (int i = 0; i < 10; ++i)
+      t_vec.emplace_back(foo);
+
+    for (auto& tx : t_vec)
+      tx.join();
+
+    std::cout << "g_llval = " << g_llval << '\n';
+    // output -> g_llval = 1580276
+
+    // normally g_llval should be 10'000'000, it is 1'580'276
+  }
+*/
+
+/*
+  #include <vector>
+  #include <thread>
+  #include <mutex>
+
+  long long int g_llval{};
+  std::mutex g_mtx;
+
+  void foo()
+  {
+    for(int i = 0; i < 1'000'000; ++i) 
+    {
+      g_mtx.lock();
+      ++g_llval;        // critical section
+      g_mtx.unlock();
+    }
+  }
+
+  int main()
+  {
+    std::vector<std::thread> t_vec;
+
+    for (int i = 0; i < 10; ++i)
+      t_vec.emplace_back(foo);
+
+    for (auto& tx : t_vec)
+      tx.join();
+
+    std::cout << "g_llval = " << g_llval << '\n';
+    // output -> g_llval = 10000000
+  }
+*/
+
+/*
+  - external synchronization : 
+    örneğin standart kütüphanenin container'ları thread-safe değil.
+    ve bu container'ları kullanırken external synchronization
+    mekanizmaları kullanmamız gerekiyor.
+
+  - internal synchronization :
+    örneğin bir sınıf yazıyoruz ve sınıfın kendi içinde thread-safe
+    olmasını sağlıyoruz buna internal synchronization denir.
+*/
+
+/*
+  #include <vector>
+  #include <string>
+  #include <mutex>
+
+  std::vector<std::string> g_svec;
+  std::mutex g_mtx;
+
+  void foo()
+  {
+    g_mtx.lock();
+    g_svec.push_back("Hello");  // critical section
+    g_mtx.unlock();
+  }
+  // external synchronization
+*/
+
+/*
+  #include <list>
+  #include <mutex>
+
+  class InternalSync_List {
+  private:
+    std::list<int> m_list;
+    std::mutex m_mtx;
+
+  public:
+    // non const member function
+    void push_back(int val)   
+    {
+      m_mtx.lock();
+      m_list.push_back(val);  // critical section
+      m_mtx.unlock();
+    } 
+
+    // const member function
+    void print() const
+    {
+      m_mtx.lock();   // syntax error
+      // error: passing 'const std::mutex' as 'this' argument 
+      // discards qualifiers
+
+      for (const auto val : m_list)   // critical section
+        std::cout << val << ' ';      // critical section
+
+      m_mtx.unlock(); // syntax error
+      // error: passing 'const std::mutex' as 'this' argument 
+      // discards qualifiers
+    }
+  };
+*/
+
+/*
+  #include <list>
+  #include <mutex>
+
+  class InternalSync_List {
+  private:
+    std::list<int> m_list;
+    mutable std::mutex m_mtx;
+
+  public:
+    // non const member function
+    void push_back(int val)   
+    {
+      m_mtx.lock();
+      m_list.push_back(val);  // critical section
+      m_mtx.unlock();
+    } 
+
+    // const member function
+    void print() const
+    {
+      m_mtx.lock();  
+
+      for (const auto val : m_list)   // critical section
+        std::cout << val << ' ';      // critical section
+
+      m_mtx.unlock();
+    }
+
+    // m_list is not thread-safe and std::cout object
+    // is global shared variable, 
+    // so they are in a critical section.
+  };
+*/
+
+/*
+                      --------------------
+                      | std::mutex class |
+                      --------------------
+*/
+
+/*
+  // std::mutex class is non-copyable and non-movable.
+
+  #include <mutex>
+  #include <utility>  // std::move
+
+  int main()
+  {
+    std::mutex mtx;
+
+    // --------------------------------------------------------
+
+    auto mtx2 = mtx;  // syntax error
+    // error: use of deleted function 
+    // 'std::mutex::mutex(const std::mutex&)'
+
+    // std::mutex is a non-copyable class
+    // copy constructor is deleted.
+
+    // --------------------------------------------------------
+
+    auto mtx3 = std::move(mtx);  
+    // error: use of deleted function 
+    // 'std::mutex::mutex(const std::mutex&)'
+
+    // std::mutex class is non-movable
+    // move constructor is not declared.
+
+    // --------------------------------------------------------
+  }
+*/
+
+/*
+  #include <mutex>
+
+  std::mutex g_mtx;
+
+  int main()
+  {
+    g_mtx.lock();
+    // when "lock" function can not acquire the mutex object,
+    // it will blocked and wait for acquiring the mutex object.
+
+    while (g_mtx.try_lock())
+    {
+      // if "try_lock" function can acquire the mutex object,
+      // it will return true and enter the critical section.
+      // if it can not acquire the mutex object, 
+      // it will return false and do some other work.
+    }
+  }
+*/
+
+/*
+  #include <mutex>
+  #include <thread>
+
+  int g_counter{};
+  std::mutex g_counter_mtx;
+
+  void try_to_increase()
+  {
+    for (int i = 0; i < 100'000; ++i) 
+    {
+      if (g_counter_mtx.try_lock()) 
+      {
+        ++g_counter;
+        g_counter_mtx.unlock();
+      }
+    }
+  }
+
+  int main()
+  {
+    std::thread t_arr[10];
+
+    for (int i = 0; i < 10; ++i)
+      t_arr[i] = std::thread{ try_to_increase };
+
+    for (auto& tx : t_arr)
+      tx.join();
+
+    std::cout << "g_counter increased " 
+              << g_counter << " times\n";
+    // output -> g_counter increased 83452 times
+  }
+*/
+
+/*
+  #include <thread>   // std::this_thread::sleep_for
+  #include <mutex>    // std::mutex
+  #include <chrono> 
+
+  using namespace std::literals;
+
+  std::mutex g_mtx;
+
+  void task_1()
+  {
+    std::cout << "task_1 is trying to lock the mutex\n";
+    g_mtx.lock();
+    std::cout << "task_1 locked the mutex\n";
+
+    std::this_thread::sleep_for(500ms);
+
+    std::cout << "task_1 is unlocking the mutex\n";
+    g_mtx.unlock();
+  }
+
+  void task_2()
+  {
+    std::this_thread::sleep_for(100ms);
+
+    std::cout << "task_2 is trying to lock the mutex\n";
+    while (!g_mtx.try_lock())
+    {
+      std::cout << "task_2 can not lock the mutex\n";
+      std::this_thread::sleep_for(100ms);
+    }
+    std::cout << "task_2 locked the mutex\n";
+
+    std::cout << "task_2 is unlocking the mutex\n";
+    g_mtx.unlock();
+  }
+
+  int main()
+  {
+    std::thread t1{ task_1 }; 
+    std::thread t2{ task_2 };
+
+    t1.join();
+    t2.join();
+
+    // output ->
+    //  task_1 is trying to lock the mutex
+    //  task_1 locked the mutex
+    //  task_2 is trying to lock the mutex
+    //  task_2 can not lock the mutex
+    //  task_2 can not lock the mutex
+    //  task_2 can not lock the mutex
+    //  task_2 can not lock the mutex
+    //  task_1 is unlocking the mutex
+    //  task_2 locked the mutex
+    //  task_2 is unlocking the mutex
+  }
+*/
+
+/*
+  #include <mutex>
+  #include <thread>
+
+  std::mutex g_mtx1;
+  std::mutex g_mtx2;
+
+  void task_1()
+  {
+    using namespace std::literals;
+
+    g_mtx1.lock();
+    std::this_thread::sleep_for(100ms);
+    g_mtx2.lock();
+
+    std::cout << "task_1()\n";
+    g_mtx1.unlock();
+    g_mtx2.unlock();
+  }
+
+  void task_2()
+  {
+    using namespace std::literals;
+
+    g_mtx2.lock();
+    std::this_thread::sleep_for(100ms);
+    g_mtx1.lock();
+
+    std::cout << "task_2()\n";
+    g_mtx2.unlock();
+    g_mtx1.unlock();
+  }
+
+  int main()
+  {
+    std::thread t1{ task_1 };
+    std::thread t2{ task_2 };
+
+    t1.join();
+    t2.join();
+
+    // 0ms 
+    //  - t1 locks g_mtx1 and waits for 100ms
+    //  - t2 locks g_mtx2 and waits for 100ms
+
+    // 100ms 
+    //  - t1 will try to lock g_mtx2 which has already locked by t2 
+    //  - t2 will try to lock g_mtx1 which has already locked by t1
+
+    // deadlock situation (undefined behavior)
+  }
+*/
+
+/*
+  #include <mutex>
+  #include <thread>
+
+  std::mutex g_mtx1;
+  std::mutex g_mtx2;
+
+  void task_1()
+  {
+    using namespace std::literals;
+
+    g_mtx1.lock();
+    std::this_thread::sleep_for(100ms);
+    g_mtx2.lock();
+
+    std::cout << "task_1()\n";
+    g_mtx1.unlock();
+    g_mtx2.unlock();
+  }
+
+  void task_2()
+  {
+    using namespace std::literals;
+
+    g_mtx1.lock();
+    std::this_thread::sleep_for(100ms);
+    g_mtx2.lock();
+
+    std::cout << "task_2()\n";
+    g_mtx2.unlock();
+    g_mtx1.unlock();
+  }
+
+  int main()
+  {
+    std::thread t1{ task_1 };
+    std::thread t2{ task_2 };
+
+    t1.join();
+    t2.join();
+
+    // output ->
+    //  task_1()
+    //  task_2()
+
+    // NO deadlock situation
+  }
+*/
+
+/*
+  #include <mutex>
+
+  class Myclass {
+  private:
+    std::mutex m_mtx;
+
+  public:
+    void func_1()
+    {
+      m_mtx.lock();       // trying to lock, already locked mutex
+      // critical section
+      m_mtx.unlock();
+    }
+
+    void func_2()
+    {
+      m_mtx.lock();
+      // critical section
+      m_mtx.unlock();
+    }
+
+    void func_3()
+    {
+      m_mtx.lock();
+      func_1();       // ----> 
+      m_mtx.unlock();
+    }
+  };
+
+  int main()
+  {
+    Myclass m1;
+    m1.func_3();
+    // deadlock situation (undefined behavior)
+  }
+*/
+
+/*
+                ------------------------------
+                | std::recursive_mutex class |
+                ------------------------------
+*/
+
+/*
+  // std::recursive_mutex class can be locked multiple times
+  // without causing a deadlock situation.
+
+  #include <mutex>  // std::recursive_mutex
+  #include <thread>
+
+  std::recursive_mutex g_rmtx;
+  int g_counter{};
+
+  void recursive_func(char ch, int N)
+  {
+    if (N < 0)
+      return;
+
+    g_rmtx.lock();
+    std::cout << ch << " - " << g_counter++ << '\n';
+    recursive_func(ch, N - 1);
+    g_rmtx.unlock();
+  }
+
+  int main()
+  {
+    std::thread t1{ recursive_func, 'x', 10 };
+    std::thread t2{ recursive_func, 'y', 10 };
+
+    t1.join();
+    t2.join();
+
+    // output ->
+    //  x - 0
+    //  x - 1
+    //  x - 2
+    //  x - 3
+    //  x - 4
+    //  x - 5
+    //  x - 6
+    //  x - 7
+    //  x - 8
+    //  x - 9
+    //  x - 10
+    //  y - 11
+    //  y - 12
+    //  y - 13
+    //  y - 14
+    //  y - 15
+    //  y - 16
+    //  y - 17
+    //  y - 18
+    //  y - 19
+    //  y - 20
+    //  y - 21
+  }
+*/
+
+/*
+                  --------------------------
+                  | std::timed_mutex class |
+                  --------------------------
+*/
+
+/*
+  std::timed_mutex class have 
+    - try_lock_for      -> duration parameter
+    - try_lock_until    -> time_point parameter
+  member functions.
+*/
+
+/*
+  #include <mutex>  // std::timed_mutex
+  #include <thread> 
+
+  int g_counter{};
+  std::timed_mutex g_tmtx;
+
+  void increment()
+  {
+    using namespace std::literals;
+
+    auto id = std::this_thread::get_id();
+
+    if (g_tmtx.try_lock_for(50ms))
+    {
+      ++g_counter;
+      std::this_thread::sleep_for(10ms);
+      std::cout << "thread " << id 
+                << " is in critical section\n";
+      g_tmtx.unlock();
+    }
+    else
+      std::cout << "thread " << id 
+                << " is NOT in critical section\n";
+  }
+
+  int main()
+  {
+    std::thread t1{ increment };
+    std::thread t2{ increment };
+
+    t1.join();
+    t2.join();
+
+    std::cout << "g_counter = " << g_counter << '\n';
+
+    // output ->
+    //  thread 3 is in critical section
+    //  thread 2 is in critical section
+    //  g_counter = 2
+  }
+*/
+
+/*
+                    -------------------------
+                    | std::lock_guard class |
+                    -------------------------
+*/
+
+/*
+  // std::lock_guard class is non-copyable and non-movable.
+
+  #include <mutex>    // std::lock_guard
+  #include <thread>
+  #include <utility>  // std::move
+
+  std::mutex g_mtx;
+
+  int main()
+  {
+    std::lock_guard guard(g_mtx);
+
+    // --------------------------------------------------------
+
+    auto guard2 = guard;  // syntax error
+    //  error: use of deleted function 
+    // 'std::lock_guard<_Mutex>::lock_guard(
+    //    const std::lock_guard<_Mutex>&)
+
+    // std::lock_guard is a non-copyable class
+    // copy constructor is deleted.
+
+    // --------------------------------------------------------
+
+    auto guard3 = std::move(guard); // syntax error
+
+    // error: use of deleted function 
+    // 'std::lock_guard<_Mutex>::lock_guard(
+    //    const std::lock_guard<_Mutex>&) 
+
+    // std::lock_guard class is non-movable
+    // move constructor is not declared.
+
+    // --------------------------------------------------------
+  }
+*/
+
+/*
+  #include <mutex>  
+  // std::mutex, std::recursive_mutex, std::timed_mutex
+  // std::lock_guard
+
+  std::mutex g_mtx;
+  std::recursive_mutex g_rmtx;
+  std::timed_mutex g_tmtx;
+
+  int main()
+  {
+    using namespace std;
+
+    lock_guard<mutex> guard1{ g_mtx };
+    lock_guard<recursive_mutex> guard2{ g_rmtx };
+    lock_guard<timed_mutex> guard3{ g_tmtx };
+
+    lock_guard guard4{ g_mtx };   // CTAD
+    lock_guard guard5{ g_rmtx };  // CTAD
+    lock_guard guard6{ g_tmtx };  // CTAD
+  }
+*/
+
+/*
+  #include <mutex>    // std::lock_guard
+
+  std::mutex g_mtx;
+
+  int main()
+  {
+    {
+      std::lock_guard guard{ g_mtx };
+      // std::lock_guard's constructor will be called
+      // and g_mtx's "lock" member function will be called
+
+      // g_mtx's "unlock" member function will be called 
+      // at the end of the scope.
+    }
+  }
+*/
+
+/*
+  #include <mutex>    // std::lock_guard
+
+  std::mutex g_mtx;
+
+  int main()
+  {
+    g_mtx.lock();
+
+    {
+      std::lock_guard guard{ g_mtx }; 
+    }
+
+    // because of g_mtx object is locked
+    // and std::lock_guard's constructor will also call 
+    // g_mtx's "lock" member function,
+    // deadlock situation will occur. (undefined behavior)
+  }
+*/
+
+/*
+  // std::adopt_lock is a constexpr variable (empty struct)
+
+  #include <mutex>    // std::lock_guard
+
+  std::mutex g_mtx;
+
+  int main()
+  {
+    g_mtx.lock();
+
+    // g_mtx object is already locked
+
+    {
+      std::lock_guard guard{ g_mtx, std::adopt_lock };
+      // if g_mtx object is already locked, 
+      // it won't call "lock" member function of g_mtx object
+      // in its constructor.
+
+      // lock_guard object's destructor will call "g_mtx" 
+      // object's "unlock" member function.
+    }
+  }
+*/
+
+/*
+                  --------------------------
+                  | std::unique_lock class |
+                  --------------------------
+*/
+
+/*
+  // std::unique_lock is non-copyable but movable class.
+
+  #include <mutex>    // std::unique_lock
+  #include <thread>
+  #include <utility>  // std::move
+
+  std::mutex g_mtx;
+
+  int main()
+  {
+    std::unique_lock guard(g_mtx);
+
+    // --------------------------------------------------------
+
+    auto guard2 = guard;  // syntax error
+    // error: use of deleted function 
+    // 'std::unique_lock<_Mutex>::unique_lock(
+    //    const std::unique_lock<_Mutex>&) 
+
+    // std::unique_lock is a non-copyable class
+    // copy constructor is deleted.
+
+    // --------------------------------------------------------
+
+    auto guard3 = std::move(guard); // VALID
+
+    // std::unique_lock is a movable class
+
+    // --------------------------------------------------------
+  }
 */

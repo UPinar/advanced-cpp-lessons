@@ -220,6 +220,13 @@
   - exception in threads
   - move semantics in threads
   - thread local storage class
+  - `std::jthread` class
+  - mutual exclusion(mutex)
+    - `std::mutex` class
+    - `std::recursive_mutex` class
+    - `std::timed_mutex` class
+    - `std::lock_guard` class
+    - `std::unique_lock` class
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
