@@ -223,10 +223,15 @@
   - `std::jthread` class
   - mutual exclusion(mutex)
     - `std::mutex` class
+    - deadlock scenarios
     - `std::recursive_mutex` class
     - `std::timed_mutex` class
     - `std::lock_guard` class
+    - `std::lock` global function template
+    - `std::scoped_lock` class
     - `std::unique_lock` class
+    - `std::shared_mutex` class (C++17)
+  - `std::once_flag`, `std::call_once`
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
