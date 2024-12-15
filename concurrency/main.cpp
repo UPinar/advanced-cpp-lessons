@@ -4122,6 +4122,31 @@
 */
 
 /*
+  #include <thread>   // std::jthread
+  #include <vector>
+
+  void func_once()
+  {
+    std::cout << "func_once() called\n";
+  }
+
+  void func()
+  {
+    static auto fn = []{ func_once(); return 0; }();
+  }
+
+  int main()
+  {
+    std::vector<std::jthread> jt_vec;
+
+    for (int i = 0; i < 50; ++i)
+      jt_vec.emplace_back(func);
+
+    // output -> func_once() called
+  }
+*/
+
+/*
   #include <memory>   // std::unique_ptr, std::make_unique
   #include <mutex>    // std::once_flag, std::call_once  
   #include <cassert>  // assert
@@ -4157,5 +4182,1133 @@
       jt_vec.emplace_back(foo, i);
 
     // output -> func_initializer called, val = 0
+  }
+*/
+
+/*
+  #include <mutex>        // std::once_flag, std::call_once
+  #include <vector>
+  #include <thread>       // std::jthread
+  #include <syncstream>   // std::osyncstream
+
+  std::once_flag g_of;
+
+  void func()
+  {
+    auto id = std::this_thread::get_id();  
+    std::osyncstream{ std::cout } 
+      << "func started with thread id = " << id << '\n';
+
+    std::call_once(g_of, [id](){
+      std::cout << "thread " << id << " called\n";
+    });
+  }
+
+  int main()
+  {
+    std::vector<std::jthread> jt_vec;
+    jt_vec.reserve(10);
+
+    for (int i = 0; i < 10; ++i)
+      jt_vec.emplace_back(func);
+    // output ->
+    //  func started with thread id = 2
+    //  func started with thread id = 5
+    //  thread 2 called
+    //  func started with thread id = 6
+    //  func started with thread id = 3
+    //  func started with thread id = 7
+    //  func started with thread id = 8
+    //  func started with thread id = 4
+    //  func started with thread id = 9
+    //  func started with thread id = 10
+    //  func started with thread id = 11
+  }
+*/
+
+/*
+  #include <mutex>  // std::once_flag, std::call_once
+  #include <chrono>
+  #include <thread> // std::this_thread::sleep_for, std::jthread
+
+  using namespace std::literals;
+
+  std::once_flag g_once_flag;
+
+  void foo()
+  {
+    std::this_thread::sleep_for(100ms);
+
+    std::call_once(g_once_flag, [](){ 
+      std::cout << "registered in foo\n"; 
+    });
+  }
+
+  void bar()
+  {
+    std::this_thread::sleep_for(100ms);
+
+    std::call_once(g_once_flag, [](){ 
+      std::cout << "registered in bar\n"; 
+    });
+  }
+
+  int main()
+  {
+    std::jthread jt_arr[10];
+
+    for (int i = 0; i < 10; ++i)
+      jt_arr[i] = i % 2 ? std::jthread{ foo } 
+                        : std::jthread{ bar };
+    // output -> registered in bar
+  }
+*/
+
+/*
+  #include <mutex>      // std::once_flag, std::call_once
+  #include <syncstream> // std::osyncstream
+  #include <vector>
+  #include <thread>
+
+  class Singleton {
+  private:
+    static std::once_flag m_once_flag;
+    static Singleton* m_instance;
+    Singleton() = default;
+
+  public:
+    Singleton(const Singleton&) = delete;
+    Singleton& operator=(const Singleton&) = delete;
+
+    static void init() { m_instance = new Singleton(); }
+    static Singleton* get_instance()
+    {
+      std::call_once(m_once_flag, Singleton::init);
+      return m_instance;
+    }
+  };
+
+  Singleton* Singleton::m_instance{};
+  std::once_flag Singleton::m_once_flag;
+
+  void func()
+  {
+    std::osyncstream{ std::cout } 
+      << Singleton::get_instance() << '\n';
+  }
+
+  int main()
+  {
+    std::vector<std::jthread> jt_vec;
+    jt_vec.reserve(5);
+
+    for (int i = 0; i < 5; ++i)
+      jt_vec.emplace_back(func);
+
+    // output ->
+    //  0x13a578fd7f0
+    //  0x13a578fd7f0
+    //  0x13a578fd7f0
+    //  0x13a578fd7f0
+    //  0x13a578fd7f0
+  }
+*/
+
+/*
+  // alternative way to implement Singleton class
+  // without using std::call_once and std::once_flag
+
+  #include <syncstream> // std::osyncstream
+  #include <vector>
+  #include <thread>
+
+  class Singleton {
+  private:
+    static Singleton* m_instance;
+    Singleton() = default;
+
+  public:
+    Singleton(const Singleton&) = delete;
+    Singleton& operator=(const Singleton&) = delete;
+
+    static void init() { m_instance = new Singleton(); }
+    static Singleton* get_instance()
+    {
+      static int _ = [](){ Singleton::init(); return 0; }(); 
+      return m_instance;
+    }
+  };
+
+  Singleton* Singleton::m_instance{};
+
+  void func()
+  {
+    std::osyncstream{ std::cout } 
+      << Singleton::get_instance() << '\n';
+  }
+
+  int main()
+  {
+    std::vector<std::jthread> jt_vec;
+    jt_vec.reserve(5);
+
+    for (int i = 0; i < 5; ++i)
+      jt_vec.emplace_back(func);
+
+    // output ->
+    //  0x15240b491b0
+    //  0x15240b491b0
+    //  0x15240b491b0
+    //  0x15240b491b0
+    //  0x15240b491b0
+  }
+*/
+
+// ------------------------------------------------------
+// ------------------------------------------------------
+// ------------------------------------------------------
+// ------------------------------------------------------
+// ------------------------------------------------------
+
+/*
+  - bir threadden başka bir thread'e 
+    sonuç(değer veya bir exception) aktarılabilir.
+
+  - üretilecek sonucu hazırlayan sınıf, std::promise
+  - sonucun iletilmesi ve kullanıdırlmasını sağlayan sınıf,
+    std::future
+*/
+
+/*
+  #include <future>   // std::future, std::promise
+
+  template <typename T>
+  class Future {};
+
+  // template parametre değişkeninin türü, 
+  // üretilmesi beklenen sonucun türüdür.
+  // herhangi bir sonuç üretilmeyecek ise void türü kullanılır.
+
+  // partial specialization for L value reference types
+  template <typename T>
+  class Future<T&>;    
+
+  // explicit specialization for void type
+  template <>
+  class Future<void>;
+
+  // ------------------------------------------------------
+
+  template <typename T>
+  class Promise {};
+
+  // template parametre değişkeninin türü,
+  // Promise sınıfının shared state'te set ediceği değerin türüdür.
+
+  // ------------------------------------------------------
+*/
+
+/*
+  #include <future>   // std::promise, std::future
+  #include <string> 
+
+  int main()
+  {
+    std::promise<int> pr1;
+    std::promise<std::string> pr2;
+    std::promise<double> pr3;
+
+    auto ft1 = pr1.get_future();  
+    // ft1 will deduce to std::future<int>
+    auto ft2 = pr2.get_future();  
+    // ft2 will deduce to std::future<std::string>
+
+    std::future<double> ft3 = pr3.get_future();
+  }
+*/
+
+/*
+  #include <future>   // std::promise
+
+  int main()
+  {
+    std::promise<int> pr;
+    auto ft = pr.get_future();
+    
+    pr.set_value(111);
+
+    std::cout << ft.get() << '\n';    // output -> 111
+  }
+*/
+
+/*
+  #include <future>     // std::promise
+  #include <stdexcept>  // std::runtime_error
+  #include <exception>  // std::make_exception_ptr
+
+  int main()
+  {
+    using namespace std;
+
+    std::promise<int> pr;
+    auto ft = pr.get_future();
+
+    pr.set_exception(make_exception_ptr(runtime_error{ "error" }));
+
+    try {
+      auto val = ft.get();
+    }
+    catch (const exception& ex) {
+      cout << "exception caught: " << ex.what() << '\n';
+    }
+    // output -> exception caught: error
+  }
+*/
+
+/*
+  #include <future>     // std::promise, std::future
+  #include <thread>     // std::jthread
+  #include <utility>    // std::move
+  #include <functional> // std::ref
+
+  double get_square(double dval) { return dval * dval; }
+
+  void produce_1(std::promise<double> prom, double dval)
+  {
+    prom.set_value(get_square(dval));
+  }
+
+  void produce_2(std::promise<double>& prom, double dval)
+  {
+    prom.set_value(get_square(dval));
+  }
+
+  void produce_3(std::promise<double>&& prom, double dval)
+  {
+    prom.set_value(get_square(dval));
+  }
+
+  int main()
+  {
+    // ------------------------------------------------------
+
+    std::promise<double> pr1;
+    std::future<double> ftr1 = pr1.get_future();
+
+    std::jthread jt1{ produce_1, std::move(pr1), 3.14 };
+    // move semantics
+
+    std::cout << "calculate value = " << ftr1.get() << '\n';
+    // output -> calculate value = 9.8596
+
+    // ------------------------------------------------------
+
+    std::promise<double> pr2;
+    std::future<double> ftr2 = pr2.get_future();
+
+    std::jthread jt2{ produce_2, std::ref(pr2), 5.52 };
+    // reference semantics (lvalue reference)
+
+    std::cout << "calculate value = " << ftr2.get() << '\n';
+    // output -> calculate value = 30.4704
+
+    // ------------------------------------------------------
+
+    std::promise<double> pr3;
+    std::future<double> ftr3 = pr3.get_future();
+
+    std::jthread jt3{ produce_3, std::move(pr3), 7.77 };
+    // reference semantics (rvalue reference)
+
+    std::cout << "calculate value = " << ftr3.get() << '\n';
+    // output -> calculate value = 60.3729
+
+    // ------------------------------------------------------
+  }
+*/
+
+/*
+  #include <future>     // std::promise, std::future
+  #include <utility>    // std::move
+  #include <thread>     // std::jthread
+
+  void sum_square(std::promise<int>&& prom, int x, int y)
+  {
+    prom.set_value(x * x + y * y);
+  } 
+
+  // function object(functor class)
+  struct Sum_Square {
+    void operator()(std::promise<int>&& prom, int x, int y)
+    {
+      prom.set_value(x * x + y * y);
+    }
+  };
+
+  int main()
+  {
+    int x = 5, y = 12;
+
+    std::promise<int> pr1;
+    std::promise<int> pr2;
+
+    std::future<int> ft1 = pr1.get_future();
+    std::future<int> ft2 = pr2.get_future();
+
+    std::jthread jt1{ sum_square, std::move(pr1), x, y };
+    std::jthread jt2{ Sum_Square{}, std::move(pr2), x, y };
+
+    std::cout << "result_1 = " << ft1.get() << '\n';
+    // output -> result_1 = 169
+    std::cout << "result_2 = " << ft2.get() << '\n';
+    // output -> result_2 = 169
+  }
+*/
+
+/*
+  #include <future>     // std::promise, std::future
+  #include <utility>    // std::move
+  #include <thread>     // std::jthread
+  #include <stdexcept>  // std::invalid_argument
+  #include <exception>  // std::current_exception
+
+  void sum_square(std::promise<int>&& prom, int x, int y)
+  {
+    try {
+      if (x < 0 || y < 0)
+        throw std::invalid_argument{ "argument is negative" };
+    }
+    catch (const std::exception& ex) {
+      auto eptr = std::current_exception();
+      prom.set_exception(eptr);
+      return;
+    }
+
+    prom.set_value(x * x + y * y);
+  } 
+
+  int main()
+  {
+    int x = 5, y = 12;
+
+    // -----------------------------------------------------
+
+    std::promise<int> pr1;
+    std::future<int> ft1 = pr1.get_future();
+    std::jthread jt1{ sum_square, std::move(pr1), x, y };
+
+    try {
+      auto val = ft1.get();
+      std::cout << "result = " << val << '\n';
+    }
+    catch (const std::exception& ex) {
+      std::cout << "exception caught: " << ex.what() << '\n';
+    }
+    // output -> result = 169
+
+    // -----------------------------------------------------
+
+    std::promise<int> pr2;
+    std::future<int> ft2 = pr2.get_future();
+    std::jthread jt2{ sum_square, std::move(pr2), -x, y };
+
+    try {
+      auto val = ft2.get();
+      std::cout << "result = " << val << '\n';
+    }
+    catch (const std::exception& ex) {
+      std::cout << "exception caught: " << ex.what() << '\n';
+    }
+    // output -> exception caught: argument is negative
+
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+  // using std::make_exception_ptr function template
+
+  #include <future>     // std::promise, std::future
+  #include <utility>    // std::move
+  #include <thread>     // std::jthread
+  #include <stdexcept>  // std::invalid_argument
+  #include <exception>  // std::make_exception_ptr
+
+  void sum_square(std::promise<int>&& prom, int x, int y)
+  {
+    if (x < 0 || y < 0) 
+    {
+      prom.set_exception( std::make_exception_ptr(
+          std::invalid_argument{ "argument is negative" }));
+      return;
+    }
+
+    prom.set_value(x * x + y * y);
+  } 
+
+  int main()
+  {
+    int x = 5, y = 12;
+
+    // -----------------------------------------------------
+
+    std::promise<int> pr1;
+    std::future<int> ft1 = pr1.get_future();
+    std::jthread jt1{ sum_square, std::move(pr1), x, y };
+
+    try {
+      auto val = ft1.get();
+      std::cout << "result = " << val << '\n';
+    }
+    catch (const std::exception& ex) {
+      std::cout << "exception caught: " << ex.what() << '\n';
+    }
+    // output -> result = 169
+
+    // -----------------------------------------------------
+
+    std::promise<int> pr2;
+    std::future<int> ft2 = pr2.get_future();
+    std::jthread jt2{ sum_square, std::move(pr2), -x, y };
+
+    try {
+      auto val = ft2.get();
+      std::cout << "result = " << val << '\n';
+    }
+    catch (const std::exception& ex) {
+      std::cout << "exception caught: " << ex.what() << '\n';
+    }
+    // output -> exception caught: argument is negative
+
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+  // when future object's get member function is called
+  // for the second time, it will throw an exception.
+
+  #include <future>    // std::promise, std::future
+
+  int main()
+  {
+    std::promise<double> prom;
+    auto ftr = prom.get_future();
+
+    prom.set_value(3.14);
+    std::cout << ftr.get() << '\n';   // output -> 3.14
+
+    try {
+      auto val = ftr.get();
+    }
+    catch (const std::exception& ex) {
+      std::cout << "exception caught: " << ex.what() << '\n';
+    }
+    // output -> 
+    //  exception caught: std::future_error: No associated state
+  }
+*/
+
+/*
+  // when promise object's get_future member function is called
+  // for the second time, it will throw an exception.
+
+  #include <future>    // std::promise, std::future
+
+  int main()
+  {
+    std::promise<double> prom;
+    auto ftr1 = prom.get_future();
+
+    try {
+      auto ftr2 = prom.get_future();
+    }
+    catch (const std::exception& ex) {
+      std::cout << "exception caught: " << ex.what() << '\n';
+    }
+    // output ->
+    //  exception caught: 
+    //  std::future_error: Future already retrieved
+  }
+*/
+
+/*
+  std::future class'es member functions
+    - "wait", will block the thread until the result is ready. 
+      no return value.
+    - "wait_for(duration)", 
+      returns std::future_status enum class
+    - "wait_until(time_point)", 
+      returns std::future_status enum class
+
+  enum future_status {
+    ready,      : value is ready
+    time_out,   : time has passed, value is still not ready
+    deferred    : workload will run synchronously,
+                  value will be ready when "get" is called
+  };
+*/
+
+/*
+  #include <future>   // std::promise, std::future
+  #include <utility>  // std::move
+  #include <chrono>
+  #include <thread>   
+  // std::this_thread::sleep_for, std::jthread
+
+  using namespace std::literals;  
+
+  void foo(std::promise<double> prom)
+  {
+    std::this_thread::sleep_for(500ms);
+    prom.set_value(3.14);
+  }
+
+  int main()
+  {
+    std::promise<double> pr;
+    std::future<double> ftr = pr.get_future();
+
+    std::jthread jt{ foo, std::move(pr) };
+
+    std::future_status status{};
+    do {
+      status = ftr.wait_for(150ms);
+      std::cout << "work...\n";
+    } while(status != std::future_status::ready);
+
+    std::cout << "result = " << ftr.get() << '\n';
+
+    // output ->
+    //  work...
+    //  work...
+    //  work...
+    //  work...
+    //  result = 3.14
+  }
+*/
+
+/*
+  #include <future>   
+  // std::promise, std::future, std::future_status
+  #include <thread>   // std::jthread
+  #include <chrono>
+  #include <format>
+
+  using namespace std::literals;
+
+  unsigned long long fibonacci(unsigned long long N)
+  {
+    return N  < 3 ? 1 : fibonacci(N - 1) + fibonacci(N - 2);
+  }
+
+  void produce( std::promise<unsigned long long> prom, 
+                unsigned long long N)
+  {
+    prom.set_value(fibonacci(N));
+  }
+
+  int main()
+  {
+    std::promise<unsigned long long> pr;
+    std::future<unsigned long long> ft = pr.get_future();
+
+    unsigned long long val = 45ULL;
+
+    std::jthread jt{ produce, std::move(pr), val };
+
+    while(ft.wait_for(20ms) == std::future_status::timeout)
+      std::cout.put('.');
+
+    auto result = ft.get();
+
+    std::cout << 
+      std::format("\nfibonacci({}) = {}\n", val, result);
+
+    // output -> 
+    //  ...................................................
+    //  ........................
+    //  fibonacci(45) = 1134903170
+  }
+*/
+
+/*
+  #include <future>   // std::promise
+  #include <chrono>
+
+  void print_status(std::future_status status)
+  {
+    using enum std::future_status;
+
+    switch (status) {
+      case ready:
+        std::cout << "ready\n"; break;
+      case timeout:
+        std::cout << "timeout\n"; break;
+      case deferred:
+        std::cout << "deferred\n"; break;
+    }
+  }
+
+  using namespace std::literals;
+
+  int main()
+  {
+    std::promise<int> pr; 
+    auto ftr = pr.get_future();
+
+    print_status(ftr.wait_for(20ms));   
+    // output -> timeout
+
+    pr.set_value(111);
+
+    print_status(ftr.wait_for(20ms));
+    // output -> ready
+  }
+*/
+
+/*
+                        --------------
+                        | std::async |
+                        --------------
+*/
+
+/*
+  std::async(callable, args...)
+    default policy
+
+  std::async(std::launch::async, callable, args...)
+    async (for running asynchronously) policy
+
+  std::async(std::launch::deferred, callable, args...)
+    deferred (for running synchronously) policy
+
+  std::async( std::launch::async | std::launch::deferred, 
+              callable, args...)
+    compiler will decide the policy
+*/
+
+/*
+  #include <future>   // std::async
+
+  int func(int x, int y)
+  {
+    return x * x + y;
+  }
+
+  int main()
+  {
+    auto ftr = std::async(func, 11, 22);
+    std::cout << ftr.get() << '\n'; // output -> 143
+  }
+*/
+
+/*
+  #include <future>   // std::async, std::launch
+
+  int func(int x, int y)
+  {
+    return x * x + y;
+  }
+
+  int main()
+  {
+    // ----------------------------------------------------
+
+    auto ftr2 = std::async(std::launch::async, func, 11, 22);
+
+    // function will run [asynchronously] (create another thread)
+    // if thread can not be created, it will throw an exception.
+
+    // ----------------------------------------------------
+
+    auto ftr3 = std::async(std::launch::deferred, func, 33, 44);
+    // lazy evaluation, function will run [synchronously]
+
+    // when "get" member function is called, 
+    // function will run [synchronously] in main thread.
+
+    ftr3.get(); // function's code will execute now.
+
+    // ----------------------------------------------------
+
+    using namespace std;
+
+    auto ftr1 = std::async(func, 55, 66);
+    auto ftr4 = async(launch::async | launch::deferred, 
+                      func, 77, 88);
+    // Those 2 lines are equivalent.
+
+    // compiler will decide the policy
+    // no way that it will throw an exception.
+
+    // ----------------------------------------------------
+  }
+*/
+
+/*
+  #include <future>   // std::future, std::async
+  #include <thread>   // std::jthread
+  #include <chrono>
+
+  using namespace std::literals;
+
+  unsigned long long fibonacci(unsigned long long N)
+  {
+    return N  < 3 ? 1 : fibonacci(N - 1) + fibonacci(N - 2);
+  }
+
+  int main()
+  {
+    using namespace std;
+
+    // ---------------------------------------------------------
+
+    auto tp_start = chrono::steady_clock::now();
+
+    auto result = fibonacci(42ULL) + fibonacci(43ULL);
+    // both function are working synchronously
+
+    auto tp_end = chrono::steady_clock::now();
+
+    cout << "result = " << result << '\n';
+    cout  << "time passed = " 
+          << chrono::duration<double>(tp_end - tp_start).count()
+          << " seconds\n";
+
+    // output ->
+    //  result = 701408733
+    //  time passed = 2.14846 seconds
+
+    // ---------------------------------------------------------
+
+    tp_start = chrono::steady_clock::now();
+
+    auto ftr = std::async(fibonacci, 42ULL);
+    auto N = fibonacci(43ULL);
+    // functions are working asynchronously
+    result = ftr.get() + N;
+
+    tp_end = chrono::steady_clock::now();
+
+    cout << "result = " << result << '\n';
+    cout  << "time passed = " 
+      << chrono::duration<double>(tp_end - tp_start).count()
+      << " seconds\n";
+
+    // output ->
+    //  result = 701408733
+    //  time passed = 1.36927 seconds
+
+    // ---------------------------------------------------------
+  }
+*/
+
+/*
+  #include <future>   // std::async, std::launch
+  #include <thread>   // std::this_thread::sleep_for
+
+  int main()
+  {
+    using namespace std::chrono_literals;
+    using d_sec = std::chrono::duration<double>;
+
+    std::chrono::time_point start = std::chrono::steady_clock::now();
+
+    auto eager = std::async(std::launch::async, []{
+      return std::chrono::steady_clock::now();
+    });
+
+    auto lazy = std::async(std::launch::deferred, []{
+      return std::chrono::steady_clock::now();
+    });
+
+    std::this_thread::sleep_for(1s);
+
+    auto deferred_sec = 
+      duration_cast<d_sec>(lazy.get() - start).count();
+    // because of the std::launch::deferred policy(lazy evaluation)
+    // workload will execute when "get" member function is called
+    // in"deferred_sec" variable's initialization.
+    // So (std::this_thread::sleep_for(1s)) in main thread
+    // will be added to duration.
+
+    auto eager_sec =
+      duration_cast<d_sec>(eager.get() - start).count();
+    // because of the std::launch::async policy
+    // workload has already been executed asynchronously
+    // in a different thread 
+    // so (std::this_thread::sleep_for(1s)) in main thread
+    // will not be added to duration.
+
+    std::cout << "duration for deferred = " 
+              << deferred_sec << " seconds\n";
+    // output -> duration for deferred = 1.00106 seconds
+
+    std::cout << "duration for eager = "
+              << eager_sec << " seconds\n";
+    // output -> duration for eager = 0.0006041 seconds
+  }
+*/
+
+/*
+  #include <future>  // std::async, std::launch
+
+  void func()
+  {
+    std::cout << "func() called\n";
+  }
+
+  int main()
+  {
+    auto ftr = std::async(std::launch::deferred, func);
+    // NO output because of the lazy evaluation
+    // "get" member function has not been called.
+  }
+*/
+
+/*
+  #include <future>  // std::async, std::launch
+
+  void func()
+  {
+    std::cout << "func() called\n";
+  }
+
+  int main()
+  {
+    auto ftr = std::async(std::launch::deferred, func);
+
+    ftr.get();  // output -> func() called
+  }
+*/
+
+/*
+  #include <future>  // std::async, std::launch
+
+  void func()
+  {
+    std::cout << "func() called\n";
+  }
+
+  int main()
+  {
+    std::cout << "[0] - main thread started\n";
+
+    {
+      auto ftr = std::async(std::launch::async, func);
+    }
+
+    std::cout << "[1] - main thread finished\n";
+  }
+  // output -> 
+  //  [0] - main thread started
+  //  func() called
+  //  [1] - main thread finished
+*/
+
+/*
+  #include <future>  // std::async, std::launch
+
+  void func()
+  {
+    std::cout << "func() called\n";
+  }
+
+  int main()
+  {
+    std::cout << "[0] - main thread started\n";
+    
+    std::async(std::launch::async, func);
+    // warning: ignoring return value of ... 
+    // declared with attribute 'nodiscard'
+    
+    // because of "std::async(std::launch::async, func)" 
+    // is a temporary object, its destructor will be called 
+    // at the end of this line.
+    // so basically it will work like a synchronous function call.
+
+    std::cout << "[1] - main thread finished\n";
+  }
+
+  // output -> 
+  //  [0] - main thread started
+  //  func() called
+  //  [1] - main thread finished
+*/
+
+/*
+  #include <chrono> // std::chrono::milliseconds
+  #include <random>   
+  // std::mt19937, std::random_device, 
+  // std::uniform_int_distribution
+  #include <thread> // std::this_thread::sleep_for
+  #include <future> // std::async
+
+  int task(char ch)
+  {
+    std::mt19937 eng{ std::random_device{}() };
+    std::uniform_int_distribution dist{ 20, 200 };
+
+    int total_duration{};
+
+    for (int i = 0; i < 10; ++i) 
+    {
+      auto dur = std::chrono::milliseconds{ dist(eng) };
+      std::this_thread::sleep_for(dur);
+      std::cout.put(ch).flush();
+      total_duration += static_cast<int>(dur.count());
+    }
+
+    return total_duration;
+  }
+
+  int func_1() { return task('*'); }
+  int func_2() { return task('!'); }
+  int func_3() { return task('.'); }
+
+  int main()
+  {
+    auto ftr1 = std::async(std::launch::async, func_1);
+    auto ftr2 = std::async(std::launch::async, func_2);
+    auto ftr3 = std::async(std::launch::async, func_3);
+
+    auto N = ftr1.get() + ftr2.get() + ftr3.get();
+    std::cout << "\nN = " << N << '\n';
+
+    // output ->
+    //  .!*!.!.*.!*.!*..*.!.!*.!*!!***
+    //  N = 3184
+  }
+*/
+
+/*
+  #include <map>
+  #include <cstddef>    // std::size_t
+  #include <string>     // std::erase_if(std::string)
+  #include <future>     // std::async
+  #include <algorithm>  // std::sort, std::count_if
+  #include <iomanip>    // std::quoted
+  #include <format>
+
+  std::map<char, std::size_t> histogram(const std::string& str)
+  {
+    std::map<char, std::size_t> ch_map{};
+
+    for (const auto ch : str)
+      ++ch_map[ch];
+
+    return ch_map;
+  }
+
+  std::string get_sorted(std::string str)
+  {
+    std::sort(str.begin(), str.end());
+    std::erase_if(str, [](const char ch){ 
+        return std::isspace(ch); 
+      });
+
+    return str;
+  }
+
+  bool is_vowel(char ch)
+  {
+    using namespace std::literals;
+    return "aeiouAEIOU"s.contains(ch);
+  }
+
+  std::size_t count_vowel(const std::string& str)
+  {
+    return std::count_if(str.begin(), str.end(), &is_vowel);
+  } 
+
+  int main()
+  {
+    std::string sline = { "istanbul ankara izmir bursa" };
+
+    auto hist = std::async(histogram, sline);
+    auto sorted_string = std::async(get_sorted, sline);
+    auto vowel_count = std::async(count_vowel, sline);
+
+    for (const auto& [ch, count] : hist.get())
+      std::cout << std::format("'{}' -> {}\n", ch, count);
+    // output ->
+    //  ' ' -> 3
+    //  'a' -> 5
+    //  'b' -> 2
+    //  'i' -> 3
+    //  'k' -> 1
+    //  'l' -> 1
+    //  'm' -> 1
+    //  'n' -> 2
+    //  'r' -> 3
+    //  's' -> 2
+    //  't' -> 1
+    //  'u' -> 2
+    //  'z' -> 1
+
+    std::cout << "sorted string = "
+              << std::quoted(sorted_string.get()) << '\n';
+    // output -> sorted string = "aaaaabbiiiklmnnrrrsstuuz"
+
+    std::cout << "total vowels = " << vowel_count.get() << '\n';
+    // output -> total vowels = 10
+  }
+*/
+
+/*
+  // if a value set to a shared state, "get" member function
+  // will return the value, 
+  // if an exception set to a shared state, "get" member function
+  // will throw the exception.
+
+  #include <future>
+  #include <cmath>      // std::pow
+  #include <stdexcept>  // std::invalid_argument
+  #include <vector>
+  #include <string>     // std::to_string
+
+  double get_power(double base, double exp)
+  {
+    if (exp < 0)
+      throw std::invalid_argument{ 
+        std::string{ "negative exponent: " } + std::to_string(exp) };
+
+    return std::pow(base, exp);
+  }
+
+  int main()
+  {
+    using namespace std;
+    std::vector<std::future<double>> ftr_vec;
+
+    for (int i = 0; i < 10; ++i)
+      ftr_vec.emplace_back(async( launch::async, 
+                                  get_power, 
+                                  1.1, 
+                                  (i % 2  ? i * 2.2 : i * -2.2)));
+
+    std::cout << std::fixed;
+
+    for (auto& ftr : ftr_vec)
+    {
+      try {
+        std::cout << ftr.get() << '\n'; 
+      }
+      catch (const std::exception& ex) {
+        std::cout << "exception caught: " << ex.what() << '\n';
+      }
+    }
+    // output ->
+    //  1.000000
+    //  1.233286
+    //  exception caught: negative exponent: -4.400000
+    //  1.875822
+    //  exception caught: negative exponent: -8.800000
+    //  2.853117
+    //  exception caught: negative exponent: -13.200000
+    //  4.339577
+    //  exception caught: negative exponent: -17.600000
+    //  6.600475
   }
 */
