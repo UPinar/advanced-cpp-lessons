@@ -232,10 +232,13 @@
     - `std::unique_lock` class
     - `std::shared_mutex` class (C++17)
   - `std::once_flag`, `std::call_once`
-  - `std::future`, `std::promise` in `<future>`
-  - `std::async` in `<future>`
+  - `std::future`, `std::promise`
+  - `std::async`
     - `std::launch::async` policy
     - `std::launch::deferred` policy
+  - `std::shared_future`
+  - `std::packaged_task`
+  - condition variable
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax

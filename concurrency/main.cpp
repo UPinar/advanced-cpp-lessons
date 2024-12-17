@@ -5312,3 +5312,745 @@
     //  6.600475
   }
 */
+
+/*
+                    ----------------------
+                    | std::shared_future |
+                    ----------------------
+*/
+
+/*
+  std::shared_future : 
+    - "get" member function can be called multiple times.
+    - copyable
+    
+*/
+
+/*
+  #include <future>       // std::promise, std::shared_future
+  #include <thread>       // std::jthread 
+  #include <utility>      // std::move
+  #include <syncstream>   // std::osyncstream
+
+  // Sum_Square functor class(function object)
+  struct Sum_Square {
+    void operator()(std::promise<int>&& prom, int x, int y)
+    {
+      prom.set_value(x * x + y * y);
+    }
+  };
+
+  void func(std::shared_future<int> sftr)
+  {
+    std::osyncstream{ std::cout }
+      << "thread id = " << std::this_thread::get_id() 
+      << ", result = " << sftr.get() << '\n';
+  }
+
+  int main()
+  {
+    std::promise<int> prom;
+    std::shared_future<int> s_ftr = prom.get_future();
+
+    std::jthread jtx{ Sum_Square{}, std::move(prom), 5, 12 };
+
+    std::jthread jt1{ func, s_ftr };
+    std::jthread jt2{ func, s_ftr };
+    std::jthread jt3{ func, s_ftr };
+    std::jthread jt4{ func, s_ftr };
+    std::jthread jt5{ func, s_ftr };
+
+    // output ->
+    //  thread id = 7, result = 169
+    //  thread id = 4, result = 169
+    //  thread id = 6, result = 169
+    //  thread id = 3, result = 169
+    //  thread id = 5, result = 169
+  }
+*/
+
+/*
+                      ----------------------
+                      | std::packaged_task |
+                      ----------------------
+*/
+
+/*
+  - std::packaged_task sınıfı türünden bir nesne, çoğunlukla
+    asynchrone çağrı yapmak için, bir callable'ı sarmalıyor.
+
+  - std::packaged_task, bir task'i, daha sonradan aynı veya farklı
+    bir thread'de çalıştırılabilir bir callable halinde paketliyor.
+*/
+
+/*
+  #include <future>   // std::packaged_task
+
+  int sum(int a, int b)
+  {
+    return a + b;
+  }
+
+  int main()
+  {
+    std::packaged_task<int(int, int)> task1;  // default init
+    std::packaged_task<int(int, int)> task2{ sum };
+    std::packaged_task task3{ sum };  // CTAD
+
+    task2(11, 22);    // operator() function
+  }
+*/
+
+/*
+  #include <future>   // std::packaged_task, std::future
+
+  int sum(int a, int b)
+  {
+    std::cout << "sum() called\n";
+    return a + b;
+  }
+
+  int main()
+  {
+    std::packaged_task<int(int, int)> task{ sum };
+    std::future<int> ftr = task.get_future();
+
+    std::packaged_task task2{ sum };        // CTAD
+    std::future ftr2 = task2.get_future();  // CTAD
+
+    task(11, 22);
+    task2(33, 44);
+    // tasks are run synchronously in main thread
+
+    std::cout << "result = " << ftr.get() << '\n';
+    std::cout << "result = " << ftr2.get() << '\n';
+    // output ->
+    //  sum() called
+    //  sum() called
+    //  result = 33
+    //  result = 77
+  }
+*/
+
+/*
+  // std::packaged_task is a non-copyable class
+
+  #include <future>   // std::packaged_task, std::future
+  #include <thread>
+
+  int sum(int a, int b)
+  {
+    return a + b;
+  }
+
+  int main()
+  {
+    std::packaged_task task{ sum };
+    std::future ftr = task.get_future();
+
+    // ---------------------------------------------------
+
+    auto task2 = task;  // syntax error
+    // error: use of deleted function 
+    //  'packaged_task<_Res(_ArgTypes ...)>::packaged_task(
+    //          const packaged_task<_Res(_ArgTypes ...)>&)
+    // copy constructor is deleted
+
+    // ---------------------------------------------------
+
+    std::thread tx{ task, 11, 22 };   // syntax error
+    // error: no matching function for call to 
+    // 'tuple<packaged_task<int(int, int)>, int, int>::tuple(
+    //        packaged_task<int(int, int)>&, int, int)'
+
+    // because of std::packaged_task is not copyable
+    // it can not be passed by value to a std::thread constructor.
+
+    tx.join();
+    
+    // ---------------------------------------------------
+  }
+*/
+
+/*
+  // std::packaged_task is a move-only class
+
+  #include <future>   // std::packaged_task, std::future
+  #include <thread>
+  #include <utility>  // std::move
+
+  int sum(int a, int b)
+  {
+    return a + b;
+  }
+
+  int main()
+  {
+    std::packaged_task task{ sum };
+    std::future ftr = task.get_future();
+
+    std::thread tx{ std::move(task), 11, 22 };
+    // task is run asynchronously in tx thread
+
+    std::cout << "result = " << ftr.get() << '\n';
+    // output -> result = 33
+
+    tx.join();
+  }
+*/
+
+/*
+  #include <future>   // std::packaged_task, std::future
+
+  int main()
+  {
+    std::packaged_task task{ [](int x){ return x * 10; }};
+    auto ftr = task.get_future();
+
+    task(35); 
+    // task run synchronously in main thread
+
+    auto result = ftr.get();
+
+    std::cout << "result = " << result << '\n';
+    // output -> result = 350
+  }
+*/
+
+/*
+  #include <future>   // std::packaged_task, std::future
+
+  int main()
+  {
+    std::packaged_task<int(int,int)> task;  // default init
+
+    try {
+      task(11, 22);
+    }
+    catch (const std::exception& ex) {
+      std::cout << "exception caught: " << ex.what() << '\n';
+    }
+    // output -> 
+    //  exception caught: std::future_error: No associated state
+  }
+*/
+
+/*
+  #include <future>       // std::packaged_task, std::future
+  #include <functional>   // std::bind, std::placeholders
+  #include <thread>       // std::thread
+
+  using fn_type = int(int, int);
+
+  int sum(int a, int b)
+  {
+    return a + b;
+  }
+
+  void task_lambda()
+  {
+  
+    std::packaged_task<fn_type> task{ 
+      [](int a, int b) { return a * a + b * b; } 
+    };
+
+    auto ftr = task.get_future();
+    task(3, 4);
+
+    std::cout << "task_lambda result = " 
+              << ftr.get() << '\n';
+  }
+
+  void task_bind()
+  {
+    using fn_type_bind = int(int);
+
+    std::packaged_task<fn_type_bind> task{
+      std::bind(sum, 6, std::placeholders::_1)
+    };
+
+    auto ftr = task.get_future();
+    task(8);
+
+    std::cout << "task_bind result = " 
+              << ftr.get() << '\n';
+  }
+
+  void task_thread()
+  {
+    std::packaged_task<fn_type> task{ sum };
+    auto ftr = task.get_future();
+
+    std::thread tx{ std::move(task), 11, 22 };
+    tx.join();
+
+    std::cout << "task_thread result = " 
+              << ftr.get() << '\n';
+  }
+
+  int main()
+  {
+    task_lambda();  // output -> task_lambda result = 25
+    // synchronous task (main thread)
+
+    task_bind();    // output -> task_bind result = 14
+    // synchronous task (main thread)
+
+    task_thread();  // output -> task_thread result = 33
+    // asynchronous task (tx thread)
+  }
+*/
+
+/*
+  #include <future>       // std::packaged_task, std::future
+  #include <thread>       // std::jthread
+  #include <syncstream>   // std::osyncstream
+
+  int fib(int N)
+  {
+    return (N < 3) ? 1 : fib(N - 1) + fib(N - 2);
+  }
+
+  int main()
+  {
+    std::packaged_task task_fib{ fib };
+    auto ftr = task_fib.get_future();
+
+    std::jthread jtx{ std::move(task_fib), 45 };
+    // asynchronous task (jtx thread)
+
+    std::osyncstream{ std::cout } 
+      << "main thread is waiting jtx task to end...\n";
+    std::cout << "result = " << ftr.get() << '\n';
+
+    // output ->
+    //  main thread is waiting jtx task to end...
+    //  result = 1134903170
+  }
+*/
+
+/*
+  #include <utility>      // std::pair
+  #include <future>       // std::packaged_task
+  #include <vector> 
+  #include <syncstream>   // std::osyncstream
+  #include <thread>       // std::jthread
+  #include <functional>   // std::ref
+
+  using ii_pair = std::pair<int, int>;
+  using fn_type = int(int, int);
+
+  void func(std::packaged_task<fn_type>& task, 
+            const std::vector<ii_pair>& pair_vec)
+  {
+    std::osyncstream os{ std::cout };
+
+    for (const auto [elem1, elem2] : pair_vec) 
+    {
+      auto ftr = task.get_future();
+      task(elem1, elem2);
+
+      os  << elem1 << " * " << elem1 << " + " << elem2 
+          << " = " << ftr.get() << '\n';
+
+      task.reset(); 
+      // for using same future object more than once
+    }
+  }
+
+  int main()
+  {
+    std::vector<ii_pair> pair_vec;
+    pair_vec.reserve(5);
+
+    pair_vec.emplace_back(3, 4);
+    pair_vec.emplace_back(5, 6);
+    pair_vec.emplace_back(7, 8);
+    pair_vec.emplace_back(9, 10);
+    pair_vec.emplace_back(11, 12);
+
+    std::packaged_task<fn_type> task{ 
+      [](int a, int b) { return a * a + b * b; } 
+    };
+
+    std::jthread jtx{ func, std::ref(task), pair_vec };
+    // asynchronous task (jtx thread)
+
+    func(task, pair_vec);
+    // synchronous task (main thread)
+
+    // output ->
+    //  3 * 3 + 4 = 25
+    //  5 * 5 + 6 = 61
+    //  7 * 7 + 8 = 113
+    //  9 * 9 + 10 = 181
+    //  11 * 11 + 12 = 265
+    //  3 * 3 + 4 = 25
+    //  5 * 5 + 6 = 61
+    //  7 * 7 + 8 = 113
+    //  9 * 9 + 10 = 181
+    //  11 * 11 + 12 = 265
+  }
+*/
+
+/*
+  #include <future>   // std::packaged_task, std::future  
+  #include <vector>
+  #include <utility>  // std::move
+  #include <thread>   // std::jthread
+
+  struct Sum_Functor{
+    int operator()(int first, int last) const
+    {
+      int sum{};
+      for (int i = first; i <= last; ++i)
+        sum += i;
+
+      return sum;
+    }
+  };
+
+  int main()
+  {
+    using fn_type = int(int, int);
+
+    Sum_Functor sum_1, sum_2, sum_3;
+
+    std::packaged_task task1{ sum_1 }, task2{ sum_2 }, 
+                                        task3{ sum_3 };
+
+    auto ftr1 = task1.get_future();
+    auto ftr2 = task2.get_future();
+    auto ftr3 = task3.get_future();
+
+    std::vector<std::packaged_task<fn_type>> task_vec;
+    task_vec.reserve(5);
+
+    task_vec.push_back(std::move(task1));
+    task_vec.push_back(std::move(task2));
+    task_vec.push_back(std::move(task3));
+
+    int first = 1, last = 100;
+    while (!task_vec.empty())
+    {
+      auto task = std::move(task_vec.back());
+      task_vec.pop_back();
+
+      std::jthread tx{ std::move(task), first++, last-- };
+      tx.detach();
+    }
+
+    auto total_sum = ftr1.get() + ftr2.get() + ftr3.get();
+    std::cout << "total sum = " << total_sum << '\n';
+    // output -> total sum = 14847
+  }
+*/
+
+/*
+                    ----------------------
+                    | condition variable |
+                    ----------------------
+*/
+
+/*
+  // naive approach to producer-consumer problem
+
+  #include <mutex>        // std::scoped_lock, std::unique_lock
+  #include <chrono>
+  #include <thread>       // std::jthread
+  #include <syncstream>   // std::osyncstream
+
+  using namespace std::literals;
+
+  int g_shared_variable{};
+  std::mutex g_mtx;
+
+  void producer()
+  {
+    std::this_thread::sleep_for(1500ms);
+
+    std::scoped_lock guard{ g_mtx };
+    g_shared_variable = 111;
+  }
+
+
+  void consumer()
+  {
+    std::unique_lock guard{ g_mtx };
+
+    while(g_shared_variable == 0) {
+      std::cout << "event is not ready\n";
+      guard.unlock();
+      std::this_thread::yield();
+      std::this_thread::sleep_for(300ms);
+      guard.lock();
+    }
+
+    // guard is still locked here
+    std::cout << "g_shared_variable = " 
+              << g_shared_variable << '\n';
+  }
+
+  int main()
+  {
+    std::jthread jt1{ producer };
+    std::jthread jt2{ consumer };
+
+    // output ->
+    //  event is not ready
+    //  event is not ready
+    //  event is not ready
+    //  event is not ready
+    //  event is not ready
+    //  g_shared_variable = 111
+  }
+*/
+
+/*
+  #include <chrono>
+  #include <string>
+  #include <thread>   // std::this_thread::sleep_for
+  #include <mutex>    // std::scoped_lock, std::unique_lock
+  #include <format>
+  #include <thread>   // std::jthread
+
+  using namespace std::literals;
+
+  std::string   g_shared_data{};
+  bool          g_updated_flag{ false };
+  std::mutex    g_data_mtx;
+  bool          g_completed_flag{ false };
+  std::mutex    g_completed_mtx;
+
+  // producer
+  void receive_data()
+  {
+    for (int i = 1; i <= 5; ++i) 
+    {
+      std::cout << "receive_data thread is waiting data...\n";
+      std::this_thread::sleep_for(500ms);
+
+      std::scoped_lock guard(g_data_mtx);
+
+      g_shared_data += std::format("chunk{:<2} ", i);
+      std::cout << "recieved data : " << g_shared_data << '\n';
+      g_updated_flag = true;
+    }
+
+    std::cout << "receive data thread is done\n";
+
+    std::scoped_lock guard(g_completed_mtx);
+    g_completed_flag = true;
+    
+  }
+
+  // consumer_1 (will check g_updated_flag)
+  void display_progress()
+  {
+    while (true) {
+      std::cout << "display_progress thread is waiting data...\n";
+      std::unique_lock guard(g_data_mtx);
+      
+      while (!g_updated_flag) {
+        guard.unlock();
+        std::this_thread::yield();
+        std::this_thread::sleep_for(100ms);
+        guard.lock();
+      }
+
+      g_updated_flag = false;
+      std::cout << "displaying progress : " 
+                << g_shared_data << '\n';
+      guard.unlock();
+
+      std::scoped_lock guard2(g_completed_mtx);
+      if (g_completed_flag) {
+        std::cout << "display_progress thread is done\n";
+        break;
+      }
+    }
+  }
+
+  // consumer_2 (will check g_completed_flag)
+  void process_data()
+  {
+    while (true) {
+      std::cout << "process_data thread is waiting data...\n";
+
+      std::unique_lock guard(g_completed_mtx);
+
+      while(!g_completed_flag) {
+        guard.unlock();
+        std::this_thread::yield();
+        std::this_thread::sleep_for(200ms);
+        guard.lock();
+      }
+
+      guard.unlock();
+
+      std::scoped_lock guard2(g_data_mtx);
+      std::cout << "processing started : " 
+                << g_shared_data << '\n';
+      break;
+    }
+  }
+
+  int main()
+  {
+    std::jthread jtx{ receive_data};
+    std::jthread jtx1{ display_progress };
+    std::jthread jtx2{ process_data };
+
+    // output ->
+    //  process_data thread is waiting data...
+    //  display_progress thread is waiting data...
+    //  receive_data thread is waiting data...
+    //  recieved data : chunk1
+    //  receive_data thread is waiting data...
+    //  displaying progress : chunk1
+    //  display_progress thread is waiting data...
+    //  recieved data : chunk1  chunk2
+    //  receive_data thread is waiting data...
+    //  displaying progress : chunk1  chunk2
+    //  display_progress thread is waiting data...
+    //  recieved data : chunk1  chunk2  chunk3
+    //  receive_data thread is waiting data...
+    //  displaying progress : chunk1  chunk2  chunk3
+    //  display_progress thread is waiting data...
+    //  recieved data : chunk1  chunk2  chunk3  chunk4
+    //  receive_data thread is waiting data...
+    //  displaying progress : chunk1  chunk2  chunk3  chunk4
+    //  display_progress thread is waiting data...
+    //  recieved data : chunk1  chunk2  chunk3  chunk4  chunk5
+    //  receive data thread is done
+    //  displaying progress : chunk1  chunk2  chunk3  chunk4  chunk5
+    //  display_progress thread is done
+    //  processing started : chunk1  chunk2  chunk3  chunk4  chunk5
+  }
+*/
+
+/*
+  #include <condition_variable>
+  #include <mutex>    // std::scoped_lock
+  #include <thread>   // std::jthread
+  #include <chrono>
+
+  using namespace std::literals;
+
+  int                     g_data{};         // shared variable
+  bool                    g_ready_flag{};   // shared variable
+  std::mutex              g_mtx;
+  std::condition_variable g_cv;
+
+  void producer()
+  {
+    {
+      std::scoped_lock guard{ g_mtx };
+      std::this_thread::sleep_for(1500ms);
+      g_data = 111;
+      g_ready_flag = true;
+    }
+
+    g_cv.notify_one();
+  }
+
+  void consumer()
+  {
+    {
+      std::unique_lock guard{ g_mtx };
+      g_cv.wait(guard, []{ return g_ready_flag; });
+
+      // when "wait" function is called, firstly,  
+      // predicate will be called to check if  
+      // "notify_one" function has already been called.
+    }
+
+    std::cout << "g_data = " << g_data << '\n';
+  }
+
+  int main()
+  {
+    std::jthread jt1{ producer };
+    std::jthread jt2{ consumer };
+
+    // output -> g_data = 111
+  }
+*/
+
+// check this code in Lesson_41
+
+/*
+  #include <mutex>  // std::unique_lock, std::scoped_lock
+  #include <condition_variable>
+  #include <vector>
+  #include <fstream>
+  #include <syncstream>
+  #include <thread>
+
+  class IStack {
+  private:
+    std::vector<int>          m_ivec;
+    mutable std::mutex        m_mtx;
+    std::condition_variable   m_cv;
+
+  public:
+    IStack() {}
+    IStack(const IStack&) = delete;
+    IStack& operator=(const IStack&) = delete;
+
+    int pop()
+    {
+      std::unique_lock guard{ m_mtx };
+      m_cv.wait(guard, [this](){ return !m_ivec.empty(); });
+      int val = m_ivec.back();
+      m_ivec.pop_back();
+      return val;
+    }
+
+    void push(int x)
+    {
+      std::scoped_lock guard{ m_mtx };
+      m_ivec.push_back(x);
+      m_cv.notify_one();
+    }
+  };
+
+  constexpr int N{ 10 };
+  IStack g_Istack;
+
+  void producer()
+  {
+    for (int i = 0; i < N; ++i) 
+    {
+      g_Istack.push(2 * i);
+      std::osyncstream{ std::cout } << "pushed : " << 2 * i << '\n';
+    }
+  }
+
+  void consumer()
+  {
+    for (int i = 0; i < N; ++i) 
+    {
+      int val = g_Istack.pop();
+      std::osyncstream{ std::cout } << "popped : " << val << '\n';
+    }
+  }
+
+  int main()
+  {
+    std::jthread jt1{ producer };
+    std::jthread jt2{ consumer };
+  }
+*/
+
+// ------------------------------------------
+
+/*
+  spurious wakeups : 
+    condition variable beklenilen event gerçekleştiği zaman
+    bekleyen thread'in bunu kaçırmamasını garanti eder.
+    belli zamanlarda bekleyen thread event gerçekleşmeden
+    uyandırılabilir, bu duruma spurious wakeup denir.
+    Dolayısıyla thread'in uyandığında beklenilen event'in 
+    gerçekleşip gerçekleşmediğini kontrol etmesi gerekir.
+*/
