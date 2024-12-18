@@ -5753,6 +5753,16 @@
 */
 
 /*
+  spurious wakeups : 
+    condition variable beklenilen event gerçekleştiği zaman
+    bekleyen thread'in bunu kaçırmamasını garanti eder.
+    belli zamanlarda bekleyen thread event gerçekleşmeden
+    uyandırılabilir, bu duruma spurious wakeup denir.
+    Dolayısıyla thread'in uyandığında beklenilen event'in 
+    gerçekleşip gerçekleşmediğini kontrol etmesi gerekir.
+*/
+
+/*
   // naive approach to producer-consumer problem
 
   #include <mutex>        // std::scoped_lock, std::unique_lock
@@ -5977,80 +5987,811 @@
   }
 */
 
-// check this code in Lesson_41
-
 /*
-  #include <mutex>  // std::unique_lock, std::scoped_lock
   #include <condition_variable>
-  #include <vector>
-  #include <fstream>
-  #include <syncstream>
-  #include <thread>
+  #include <chrono>
+  #include <syncstream>   // std::osyncstream
+  #include <string>
+  #include <mutex>        // std::unique_lock, std::scoped_lock
+  #include <thread>       // std::jthread
 
-  class IStack {
-  private:
-    std::vector<int>          m_ivec;
-    mutable std::mutex        m_mtx;
-    std::condition_variable   m_cv;
+  using namespace std::literals;
 
-  public:
-    IStack() {}
-    IStack(const IStack&) = delete;
-    IStack& operator=(const IStack&) = delete;
+  std::condition_variable g_cv;
+  std::mutex              g_mtx;  
+  int                     g_data{};
 
-    int pop()
-    {
-      std::unique_lock guard{ m_mtx };
-      m_cv.wait(guard, [this](){ return !m_ivec.empty(); });
-      int val = m_ivec.back();
-      m_ivec.pop_back();
-      return val;
-    }
-
-    void push(int x)
-    {
-      std::scoped_lock guard{ m_mtx };
-      m_ivec.push_back(x);
-      m_cv.notify_one();
-    }
-  };
-
-  constexpr int N{ 10 };
-  IStack g_Istack;
-
-  void producer()
+  void waits(const std::string& id)
   {
-    for (int i = 0; i < N; ++i) 
-    {
-      g_Istack.push(2 * i);
-      std::osyncstream{ std::cout } << "pushed : " << 2 * i << '\n';
-    }
+    std::osyncstream os{ std::cout };
+
+    std::unique_lock guard{ g_mtx };
+    os << id << " is waiting...\n";
+
+    g_cv.wait(guard, []{ return g_data == 111; });
+    // when "wait" function is called,
+    // first thing it does is checking the predicate
+    // is already satisfied or not.
+    // if "g_data" has already been set to 111
+    // program will continue executing,
+    // if not, it will start waiting until waking up again.
+    // Everytime it wakes up, it will control the predicate 
+    // if it is not satisfied, will sleep(wait) again
+    // until waking up and saw that predicate is satisfied.
+
+    os << id << " woke up... g_data = " << g_data << '\n';
   }
 
-  void consumer()
+  void signals(const std::string& id)
   {
-    for (int i = 0; i < N; ++i) 
+    std::osyncstream os{ std::cout };
+
+    os << id << " is notifying\n";
+    g_cv.notify_all();    
+    // waking up consumers but predicate is not satisfied yet.
+    std::this_thread::sleep_for(1s);
+
     {
-      int val = g_Istack.pop();
-      std::osyncstream{ std::cout } << "popped : " << val << '\n';
+      std::scoped_lock guard{ g_mtx };
+      g_data = 111;
+      os << id << " is notifying.\n";
     }
+
+    g_cv.notify_all();
   }
 
   int main()
   {
-    std::jthread jt1{ producer };
-    std::jthread jt2{ consumer };
+    std::jthread  jt1{ waits, "consumer_1" },
+                  jt2{ waits, "consumer_2" },
+                  jt3{ waits, "consumer_3" },
+                  jt4{ waits, "consumer_4" },
+                  jt5{ signals, "producer" };
+    // output ->
+    //  producer is notifying
+    //  producer is notifying.
+    //  consumer_2 is waiting...
+    //  consumer_2 woke up... g_data = 111
+    //  consumer_1 is waiting...
+    //  consumer_1 woke up... g_data = 111
+    //  consumer_3 is waiting...
+    //  consumer_3 woke up... g_data = 111
+    //  consumer_4 is waiting...
+    //  consumer_4 woke up... g_data = 111
   }
 */
 
-// ------------------------------------------
+/*
+  #include <mutex>      // std::unique_lock, std::scoped_lock
+  #include <condition_variable>
+  #include <string>
+  #include <iomanip>    // std::quoted
+  #include <chrono>
+  #include <thread>     // std::jthread
+
+  using namespace std::literals;
+
+  std::mutex                  g_mtx;
+  std::condition_variable     g_cv;
+  std::string                 g_str;    // shared variable
+
+  void reader()
+  {
+    std::cout << "reader thread is locking the mutex\n";
+    std::unique_lock guard{ g_mtx };
+    std::cout << "reader thread has locked the mutex\n";
+
+    std::cout << "reader thread started sleeping\n";
+    g_cv.wait(guard, []{ return !g_str.empty(); });
+    std::cout << "reader thread wakes up\n";
+
+    std::cout << "g_str = " << std::quoted(g_str) << '\n';
+    std::cout << "reader thread is unlocking the mutex\n";
+  }
+
+  void writer()
+  {
+    {
+      std::cout << "writer thread is locking the mutex\n";
+
+      std::scoped_lock guard{ g_mtx };
+      std::cout << "writer thread has locked the mutex\n";
+
+      std::cout << "writer thread modifying g_str\n";
+      g_str = "hello";
+
+      std::cout << "writer thread is unlocking the mutex\n";  
+    }
+
+    std::cout << "writer thread is notifying\n";
+    g_cv.notify_one();
+  }
+
+  int main()
+  {
+    std::jthread jt1{ reader };
+    std::this_thread::sleep_for(800ms);
+    std::jthread jt2{ writer };
+
+    // output ->
+    //  reader thread is locking the mutex
+    //  reader thread has locked the mutex
+    //  reader thread started sleeping
+    //  writer thread is locking the mutex
+    //  writer thread has locked the mutex
+    //  writer thread modifying g_str
+    //  writer thread is unlocking the mutex
+    //  writer thread is notifying
+    //  reader thread wakes up
+    //  g_str = "hello"
+    //  reader thread is unlocking the mutex
+  }
+*/
 
 /*
-  spurious wakeups : 
-    condition variable beklenilen event gerçekleştiği zaman
-    bekleyen thread'in bunu kaçırmamasını garanti eder.
-    belli zamanlarda bekleyen thread event gerçekleşmeden
-    uyandırılabilir, bu duruma spurious wakeup denir.
-    Dolayısıyla thread'in uyandığında beklenilen event'in 
-    gerçekleşip gerçekleşmediğini kontrol etmesi gerekir.
+          ----------------------------------------------
+          | concurrency in standart library algorithms |
+          ----------------------------------------------
+*/
+
+/*
+        <---- check not_related/std::accumulate ---->
+*/
+
+/*
+  #include <vector>
+  #include <cstddef>    // std::size_t
+  #include <random>     // std::mt19937, std::random_device
+  #include <algorithm>  // std::generate
+  #include <chrono>     // std::chrono::steady_clock
+  #include <numeric>    // std::accumulate
+  #include <future>     // std::async, std::launch::async
+
+  using ui64 = unsigned long long;
+
+  ui64 partial_accumulate(const ui64* p_first, const ui64* p_last)
+  {
+    return std::accumulate(p_first, p_last, 0ULL);
+  }
+
+  ui64 concurrent_accumulate(const std::vector<ui64>& vec)
+  {
+    const auto p_first = vec.data();
+    const auto vec_size = vec.size();
+
+    auto ftr1 = std::async( std::launch::async, 
+                            partial_accumulate, 
+                            p_first, p_first + vec_size / 4);
+
+    auto ftr2 = std::async( std::launch::async,
+                            partial_accumulate,
+                            p_first + (vec_size / 4), 
+                            p_first + (vec_size / 2));
+
+    auto ftr3 = std::async( std::launch::async, 
+                            partial_accumulate, 
+                            p_first + (vec_size / 2),
+                            p_first + 3 * (vec_size / 4));
+
+    auto ftr4 = std::async( std::launch::async,
+                            partial_accumulate,
+                            p_first + 3 * (vec_size / 4),
+                            p_first + vec_size);
+
+    return ftr1.get() + ftr2.get() + ftr3.get() + ftr4.get();
+  }
+
+  int main()
+  {
+    std::mt19937 eng;
+    std::uniform_int_distribution dist{ 0ULL, 50ULL };
+
+    constexpr std::size_t N = 200'000'000ULL;
+    std::vector<ui64> uvec(N);
+
+    std::generate(uvec.begin(), uvec.end(), 
+                  [&eng, &dist]{ return dist(eng); }); 
+
+    // -------------------------------------------------------
+
+    auto tp_start = std::chrono::steady_clock::now();
+    auto sum = std::accumulate(uvec.begin(), uvec.end(), 0ULL);
+    auto tp_end = std::chrono::steady_clock::now();
+
+    std::cout << "accumulate duration without threads = " 
+      << std::chrono::duration<double>(tp_end - tp_start) 
+      << '\n';
+    // output -> accumulate duration without threads = 1.32412s
+
+    // -------------------------------------------------------
+
+    auto tp_start_conc = std::chrono::steady_clock::now();
+    auto sum_conc = concurrent_accumulate(uvec);
+    auto tp_end_conc = std::chrono::steady_clock::now();
+
+    std::cout << "accumulate duration with threads = " 
+      << std::chrono::duration<double>(tp_end_conc - tp_start_conc) 
+      << '\n';
+    // output -> accumulate duration with threads = 0.117924s
+
+    // -------------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <cstddef>    // std::size_t
+  #include <random>     // std::mt19937, std::random_device
+  #include <algorithm>  // std::generate
+  #include <chrono>     // std::chrono::steady_clock
+  #include <numeric>    // std::accumulate
+  #include <future>     // std::packaged_task
+  #include <thread>     // std::jthread
+  #include <utility>    // std::move
+
+  using ui64 = unsigned long long;
+
+  ui64 partial_accumulate(const ui64* p_first, const ui64* p_last)
+  {
+    return std::accumulate(p_first, p_last, 0ULL);
+  }
+
+  ui64 concurrent_accumulate(const std::vector<ui64>& vec)
+  {
+    using fn_type = ui64(const ui64*, const ui64*);
+    using task_t = std::packaged_task<fn_type>;
+
+    task_t task1(partial_accumulate);
+    task_t task2(partial_accumulate);
+    task_t task3(partial_accumulate);
+    task_t task4(partial_accumulate);
+
+    auto ftr1 = task1.get_future();
+    auto ftr2 = task2.get_future();
+    auto ftr3 = task3.get_future();
+    auto ftr4 = task4.get_future();
+
+    auto p_first = vec.data();
+    auto vec_size = vec.size();
+
+    std::jthread jt1( std::move(task1), 
+                      p_first, 
+                      p_first + (vec_size / 4));
+
+    std::jthread jt2( std::move(task2),
+                      p_first + (vec_size / 4),
+                      p_first + (vec_size / 2));
+    
+    std::jthread jt3( std::move(task3),
+                      p_first + (vec_size / 2),
+                      p_first + 3 * (vec_size / 4));
+
+    std::jthread jt4( std::move(task4),
+                      p_first + 3 * (vec_size / 4),
+                      p_first + vec_size);
+
+    return ftr1.get() + ftr2.get() + ftr3.get() + ftr4.get();
+  }
+
+  int main()
+  {
+    std::mt19937 eng;
+    std::uniform_int_distribution dist{ 0ULL, 50ULL };
+
+    constexpr std::size_t N = 400'000'000ULL;
+    std::vector<ui64> uvec(N);
+
+    std::generate(uvec.begin(), uvec.end(), 
+                  [&eng, &dist]{ return dist(eng); }); 
+
+    // -------------------------------------------------------
+
+    auto tp_start = std::chrono::steady_clock::now();
+    auto sum = std::accumulate(uvec.begin(), uvec.end(), 0ULL);
+    auto tp_end = std::chrono::steady_clock::now();
+
+    std::cout << "accumulate duration without threads = " 
+      << std::chrono::duration<double>(tp_end - tp_start) 
+      << '\n';
+    // output -> accumulate duration without threads = 2.65025s
+
+    // -------------------------------------------------------
+
+    auto tp_start_conc = std::chrono::steady_clock::now();
+    auto sum_conc = concurrent_accumulate(uvec);
+    auto tp_end_conc = std::chrono::steady_clock::now();
+
+    std::cout << "accumulate duration with threads = " 
+      << std::chrono::duration<double>(tp_end_conc - tp_start_conc) 
+      << '\n';
+    // output -> accumulate duration with threads = 0.275826s
+
+    // -------------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <cstddef>    // std::size_t
+  #include <random>     // std::mt19937, std::random_device
+  #include <algorithm>  // std::generate
+  #include <chrono>
+  #include <numeric>    // std::accumulate, std::reduce
+  #include <future>
+  #include <execution>  // std::reduce
+
+  using ui64 = unsigned long long;
+
+  int main()
+  {
+    std::mt19937 eng;
+    std::uniform_int_distribution dist{ 0ULL, 50ULL };
+
+    constexpr std::size_t N = 400'000'000ULL;
+    std::vector<ui64> uvec(N);
+
+    std::generate(uvec.begin(), uvec.end(), 
+                  [&eng, &dist]{ return dist(eng); }); 
+
+    // -------------------------------------------------------
+
+    auto tp_start = std::chrono::steady_clock::now();
+
+    auto sum = std::accumulate( uvec.begin(), uvec.end(), 0ULL, 
+                      [](auto a, auto b){ return a * a + b * b; });
+
+    auto tp_end = std::chrono::steady_clock::now();
+
+    std::cout << "accumulate duration without threads = " 
+      << std::chrono::duration<double>(tp_end - tp_start) 
+      << '\n';
+    // output -> accumulate duration without threads = 3.07354s
+
+    // -------------------------------------------------------
+
+    auto tp_start_conc = std::chrono::steady_clock::now();
+
+    auto sum_conc = std::reduce(std::execution::par, 
+                                uvec.begin(), uvec.end(), 0ULL, 
+                      [](auto a, auto b){ return a * a + b * b; });
+
+    auto tp_end_conc = std::chrono::steady_clock::now();
+
+    std::cout << "accumulate duration with threads = " 
+      << std::chrono::duration<double>(tp_end_conc - tp_start_conc) 
+      << '\n';
+    // output -> accumulate duration with threads = 2.34186s
+
+    // -------------------------------------------------------
+  }
+*/
+
+/*
+  #include <execution>    
+  // std::execution::sequenced_policy             (C++17)
+  // std::execution::parallel_policy              (C++17)
+  // std::execution::parallel_unsequenced_policy  (C++17)
+  // std::execution::unsequenced_policy           (C++20)
+  #include <vector>
+  #include <algorithm>    // std::sort
+
+  int main()
+  {
+    std::vector<int> ivec(100000);
+
+    // ---------------------------------------------------
+
+    std::sort(std::execution::sequenced_policy{}, 
+              ivec.begin(), ivec.end());
+    std::sort(std::execution::seq,
+              ivec.begin(), ivec.end());
+    // Those 2 lines are equivalent.
+
+    // ---------------------------------------------------
+
+    std::sort(std::execution::parallel_policy{}, 
+              ivec.begin(), ivec.end());
+    std::sort(std::execution::par,
+              ivec.begin(), ivec.end());
+    // Those 2 lines are equivalent.
+
+    // ---------------------------------------------------
+
+    std::sort(std::execution::parallel_unsequenced_policy{}, 
+              ivec.begin(), ivec.end());
+    std::sort(std::execution::par_unseq,
+              ivec.begin(), ivec.end());
+    // Those 2 lines are equivalent.
+
+    // ---------------------------------------------------
+
+    
+    std::sort(std::execution::unsequenced_policy{}, 
+              ivec.begin(), ivec.end());
+    std::sort(std::execution::unseq, 
+              ivec.begin(), ivec.end());  
+    // Those 2 lines are equivalent.
+
+    // ---------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <algorithm>  // std::sort
+  #include <execution>  // std::execution::seq
+
+  int main()
+  {
+    std::vector<int> ivec(100'000);
+
+    std::sort(ivec.begin(), ivec.end());    // overload (1)
+
+    std::sort(std::execution::seq, 
+              ivec.begin(), ivec.end());    // overload (2)
+
+    // both overload are running the algorithm sequencial 
+    // in the same thread
+    // difference between those 2 overload
+    // when an exception thrown in overload (1), it CAN BE caught.
+    // when an exception thrown in overload (2), 
+    //  std::terminate will be called. 
+  }
+*/
+
+/*
+  #include <vector>
+  #include <algorithm>
+  #include <execution>  // std::execution::seq
+  #include <stdexcept>  // std::runtime_error
+
+  int main()
+  {
+    std::vector ivec{ 11, 22, 33, 44, 55, 66, 77, 88, 99 };
+
+    try {
+      std::sort(ivec.begin(), ivec.end(), 
+              [](int a, int b){ 
+                if (a % 2 == b % 2) 
+                  throw std::runtime_error{ "error in std::sort "};
+                return a < b;
+              });
+    }
+    catch (const std::exception& ex) {
+      std::cout << "exception caught: " << ex.what() << '\n';
+    }
+    // output -> exception caught: error in std::sort
+  }
+*/
+
+/*
+  #include <vector>
+  #include <algorithm>
+  #include <execution>  // std::execution::seq
+  #include <stdexcept>  // std::runtime_error
+  #include <exception>  // std::set_terminate
+  #include <cstdlib>    // std::abort
+
+  void terminate_func()
+  {
+    std::cout << "terminate_func is called\n";
+    std::cout << "abort will be called\n";
+    std::abort();
+  }
+
+  int main()
+  {
+    std::set_terminate(terminate_func);
+    std::vector ivec{ 11, 22, 33, 44, 55, 66, 77, 88, 99 };
+
+    try {
+      std::sort(std::execution::seq, ivec.begin(), ivec.end(), 
+              [](int a, int b){ 
+                if (a % 2 == b % 2) 
+                  throw std::runtime_error{ "error in std::sort "};
+                return a < b;
+              });
+    }
+    catch (const std::exception& ex) {
+      std::cout << "exception caught: " << ex.what() << '\n';
+    }
+  }
+  // output ->
+  //  terminate_func is called
+  //  abort will be called
+*/
+
+/*
+  std::execution::parallel_policy, argüman olarak gönderildiğinde
+  algoritma koşulların uygun olmaması sebebi ile
+  std::execution::sequenced_policy olarak da çalıştırılabilir.
+
+  std::execution::parallel_unsequenced_policy : 
+    vektörizasyon ve ilave threadler arasındaki aktarımlar
+    için müsaade verilmiş olunur.
+
+  std::execution::unsequenced_policy :
+    vektörizasyon kullanılır fakat ayrı threadler kullanılmaz.
+
+  parallel policy'lerde doğrusal bir yapı olma zorunluluğu 
+  ortadan kalkar. Öğelerin hangi sırayla işleme sokulacağı 
+  belirsizdir. dolayısıyla senkronizasyon işlemi programcının 
+  sorumluluğundadır.
+*/
+
+/*
+  #include <vector>
+  #include <random>
+  // std::mt19937, std::uniform_int_distribution
+  #include <algorithm>  // std::generate, std::sort
+  #include <execution>
+  // std::execution::seq, std::execution::unseq,
+  // std::execution::par, std::execution::par_unseq
+  #include <chrono>     
+  // std::chrono::steady_clock, std::chrono::duration
+
+  namespace exec = std::execution;  // namespace alias
+  using dsec = std::chrono::duration<double>;
+
+  int main()
+  {
+    constexpr std::size_t N = 10'000'000;
+    std::vector<double> dvec(N);
+
+    std::mt19937 eng;
+    std::uniform_real_distribution dist{ -50.0, 50.0 };
+    std::generate(dvec.begin(), dvec.end(), 
+                  [&eng, &dist]{ return dist(eng); });
+
+    // -----------------------------------------------------
+
+    auto tp_start = std::chrono::steady_clock::now(); 
+    std::sort(std::execution::seq, 
+              dvec.begin(), dvec.end());
+    auto tp_end = std::chrono::steady_clock::now(); 
+
+    std::cout << dsec(tp_end - tp_start).count() << "seconds\n";
+    // output -> 3.4896seconds
+
+    // -----------------------------------------------------
+
+    tp_start = std::chrono::steady_clock::now(); 
+    std::sort(std::execution::unseq, 
+              dvec.begin(), dvec.end());
+    tp_end = std::chrono::steady_clock::now(); 
+
+    std::cout << dsec(tp_end - tp_start).count() << "seconds\n";
+    // output -> 2.01572seconds
+
+    // -----------------------------------------------------
+
+    tp_start = std::chrono::steady_clock::now(); 
+    std::sort(std::execution::par, 
+              dvec.begin(), dvec.end());
+    tp_end = std::chrono::steady_clock::now(); 
+
+    std::cout << dsec(tp_end - tp_start).count() << "seconds\n";
+    // output -> 2.00061seconds
+    
+    // -----------------------------------------------------
+
+    tp_start = std::chrono::steady_clock::now(); 
+    std::sort(std::execution::par_unseq, 
+              dvec.begin(), dvec.end());
+    tp_end = std::chrono::steady_clock::now(); 
+
+    std::cout << dsec(tp_end - tp_start).count() << "seconds\n";
+    // output -> 1.9991seconds
+
+    // -----------------------------------------------------
+  }
+*/
+
+/*
+        <---- check images/accumulate_parallel.png ---->
+*/
+
+/*
+  // come back this code later.
+
+  #include <random> 
+  #include <vector>
+  #include <execution>
+
+  namespace exec = std::execution;
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    std::mt19937 eng;
+    std::uniform_int_distribution dist{ 0u, 100u };
+
+    std::vector<int> ivec1(1'000'000);
+    std::vector<int> ivec2(1'000'000);
+
+    eng.seed(111u);
+    std::generate(exec::par, ivec1.begin(), ivec1.end(), 
+                  [&]{ return dist(eng); });
+
+    eng.seed(111u);
+    std::generate(exec::par, ivec2.begin(), ivec2.end(), 
+                  [&]{ return dist(eng); });
+
+    std::cout << (ivec1 == ivec2) << '\n';
+  }
+*/
+
+/*
+                    -------------------------
+                    | std::reduce algorithm |
+                    -------------------------
+*/
+
+/*
+  std::reduce is a concurrent version of std::accumulate.
+*/
+
+/*
+  // differences between std::accumulate, std::reduce
+
+  #include <numeric>    // std::accumulate, std::reduce
+  #include <vector>
+
+  int main()
+  {
+    std::vector ivec{ 11, 33, 55, 77, 99 };
+
+    std::accumulate(ivec.begin(), ivec.end());  // syntax error
+    //  error: no matching function for call to 
+    // 'accumulate(std::vector<int, std::allocator<int>>::iterator, 
+    //             std::vector<int, std::allocator<int> >::iterator)'
+
+    std::reduce(ivec.begin(), ivec.end());
+    std::accumulate(ivec.begin(), ivec.end(), int{});
+    // Those 2 lines are equivalent.
+  }
+*/
+
+/*
+  std::accumulate only have 
+    input iterator(InIter) parameter overload.
+  std::reduce also have 
+    forward iterator(ForIter) parameter overload.
+*/
+
+/*
+  #include <vector>
+  #include <random>   
+  // std::mt19937, std::uniform_int_distribution
+  #include <execution>
+  #include <algorithm>  // std::generate
+  #include <numeric>    // std::reduce
+  #include <chrono>     // std::chrono::steady_clock
+
+  namespace exec = std::execution;
+  using namespace std::chrono;
+
+  int main()
+  {
+    std::vector<unsigned int> ivec(100'000'000);
+    std::mt19937 eng;
+    std::uniform_int_distribution dist{ 0u, 10u };
+
+    std::generate(exec::par, 
+                  ivec.begin(), ivec.end(), 
+                  [&]{ return dist(eng); });
+
+
+    // ----------------------------------------------------
+
+    auto tp_start = std::chrono::steady_clock::now(); 
+
+    auto result = 
+      std::reduce(exec::seq, 
+                  ivec.begin(), ivec.end(), 
+                  0u, 
+                  [](auto a, auto b){ return a * a + b * b; });
+
+    auto tp_end = std::chrono::steady_clock::now();
+
+    std::cout 
+      << duration_cast<milliseconds>(tp_end - tp_start).count() 
+      << " milliseconds\n";
+    // exec::seq output -> 603 milliseconds
+    // exec::par output -> 556 milliseconds
+
+    std::cout << "result = " << result << '\n';
+    // output -> result = 1451211306
+
+    // ----------------------------------------------------
+  }
+*/
+
+/*
+              -----------------------------------
+              | std::transform_reduce algorithm |
+              -----------------------------------
+*/
+
+/*
+        <---- check not_related/std::transform ---->
+        <---- check not_related/std::inner_product ---->
+*/
+
+/*
+  // parallel version of std::inner_product algorithm
+
+  #include <numeric>    // std::transform_reduce
+  #include <vector>
+  #include <execution>
+  #include <functional> // std::plus, std::multiplies
+
+  int main()
+  {
+    std::vector<int> ivec1{ 1, 2, 3, 4, 5 };
+    std::vector<int> ivec2{ 6, 7, 8, 9, 10 };
+    // (1 * 6) + (2 * 7) + (3 * 8) + (4 * 9) + (5 * 10) = 130
+
+    // ------------------------------------------------
+
+    auto result = std::transform_reduce( 
+        std::execution::par,
+        ivec1.begin(), ivec1.end(),
+        ivec2.begin(),
+        0);
+
+    std::cout << "inner product of x and y = " 
+              << result << '\n';
+    // output -> inner product of x and y = 130
+
+    // ------------------------------------------------
+
+    result = std::transform_reduce( 
+        std::execution::par,
+        ivec1.begin(), ivec1.end(),
+        ivec2.begin(),
+        0,
+        std::plus{}, std::multiplies{});
+
+    std::cout << "inner product of x and y = " 
+              << result << '\n';
+    // output -> inner product of x and y = 130
+
+    // ------------------------------------------------
+  }
+*/
+
+/*
+  #include <numeric>    
+  // std::inner_product, std::transform_reduce
+  #include <vector>
+  #include <string>
+  #include <functional> // std::plus, std::equal_to
+  #include <execution>
+
+  int main()
+  {
+    std::vector<std::string> svec1{ 
+        "aa", "bb", "cc", "dd", "ee", "ab", "cd", "ef", "gh" };
+      
+    std::vector<std::string> svec2{ 
+        "aa", "cb", "cc", "ef", "gg", "xx", "yy", "ef", "zz" };
+
+    // to find out which elements 
+    // are common in both vectors with same index
+
+    auto count = std::transform_reduce( 
+                    std::execution::par,
+                    svec1.begin(), svec1.end(), 
+                    svec2.begin(), 
+                    0,
+                    std::plus{}, std::equal_to{});
+
+    std::cout << "count = " << count << '\n'; 
+    // output -> count = 3
+
+    // transform  => equal_to
+    // reduce     => plus
+  }
 */

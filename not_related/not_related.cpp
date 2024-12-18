@@ -1662,6 +1662,253 @@
   }
 */
 
+/*
+            ------------------------------------------
+            | std::accumulate algorithm in <numeric> |
+            ------------------------------------------
+*/
+
+/*
+  #include <vector>
+  #include <cstddef>    // std::size_t
+  #include <random>     // std::mt19937, std::random_device
+  #include <algorithm>  // std::generate
+  #include <numeric>    // std::accumulate
+
+  using namespace std::literals;
+
+  int main()
+  {
+    std::mt19937 eng;
+    std::uniform_int_distribution dist{ 0ULL, 50ULL };
+
+    constexpr std::size_t N = 1'000'000ULL;
+    std::vector<unsigned long long> uvec(N);
+
+    std::generate(uvec.begin(), uvec.end(), 
+                  [&eng, &dist]{ return dist(eng); }); 
+
+    auto sum1 = std::accumulate(uvec.begin(), uvec.end(), 0ULL);
+    // sum1's data type is unsigned long long
+
+    auto sum2 = std::accumulate(uvec.begin(), uvec.end(), 0);
+    // sum2's data type is int
+
+    auto sum3 = std::accumulate(uvec.begin(), uvec.end(), "hello"s);
+    // sum3's data type is std::string
+  }
+*/
+
+/*
+  #include <vector>
+  #include <numeric>  // std::accumulate
+  #include <string>
+
+  using namespace std::literals;
+
+  int main()
+  {
+    std::vector ivec{ 11, 33, 55, 77, 99 };
+
+    auto res = std::accumulate(
+                  ivec.begin(), ivec.end(), ""s); // syntax error
+    // error: no match for 'operator+' 
+    // (operand types are 'std::basic_string<char>'} and 'int')
+  }
+*/
+
+/*
+  #include <vector>
+  #include <numeric>  // std::accumulate
+  #include <string>
+
+  using namespace std::literals;
+
+  int main()
+  {
+    std::vector ivec{ 11, 33, 55, 77, 99 };
+
+    // --------------------------------------------------
+
+    auto res = std::accumulate(
+                  ivec.begin(), ivec.end(), ""s,
+                  [](std::string str, int val) {
+                    return str + std::to_string(val); });
+    std::cout << res << '\n';   
+    // output -> 1133557799
+
+    // --------------------------------------------------
+
+    res = std::accumulate(
+                  ivec.begin(), ivec.end(), "00"s,
+                  [](std::string str, int val) {
+                    return str + '-' + std::to_string(val); });
+    std::cout << res << '\n';   
+    // output -> 00-11-33-55-77-99
+    
+    // --------------------------------------------------
+  }
+*/
+
+/*
+  #include <vector>
+  #include <numeric>    // std::accumulate
+  #include <string>
+  #include <functional> // std::multiplies(function object)
+
+  using namespace std::literals;
+
+  int main()
+  {
+    std::vector ivec{ 1, 2, 3 };
+
+    // --------------------------------------------------
+
+    auto res = std::accumulate( ivec.begin(), ivec.end(), 
+                                1, std::multiplies{});
+    std::cout << res << '\n'; 
+    // output -> 6
+    // init = 1 -> 1 * 1 = 1
+    // init = 1 -> 1 * 2 = 2
+    // init = 2 -> 2 * 3 = 6
+
+    // --------------------------------------------------
+
+    res = std::accumulate(ivec.begin(), ivec.end(), 1, 
+                  [](int x, int y) { return x * x + y * y; });
+    std::cout << res << '\n';
+    // output -> 73
+    //  init = 1 -> (1 * 1 + 1 * 1) = 2
+    //  init = 2 -> (2 * 2 + 2 * 2) = 8 
+    //  init = 8 -> (8 * 8 + 3 * 3) = 73
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+                  ----------------------------
+                  | std::transform algorithm |
+                  ----------------------------    
+*/
+
+/*
+  #include <vector>
+  #include <algorithm>  // std::transform, std::copy
+  #include <iterator>   // std::ostream_iterator
+
+  int main()
+  {
+    std::vector ivec1{ 1, 2, 3, 4, 5 };
+    std::vector<int> ivec2(ivec1.size());
+
+    std::transform(ivec1.begin(), ivec1.end(), 
+                  ivec2.begin(), 
+                  [](int x){ return x * x; });
+
+    std::copy(ivec1.begin(), ivec1.end(), 
+              std::ostream_iterator<int>{ std::cout, " " });
+    // output -> 1 2 3 4 5 
+    std::cout << '\n';
+
+    std::copy(ivec2.begin(), ivec2.end(), 
+              std::ostream_iterator<int>{ std::cout, " " });
+    // output -> 1 4 9 16 25
+  }
+*/
+
+/*
+  #include <vector>
+  #include <list>
+  #include <deque>  
+  #include <algorithm>    // std::transform, std::copy
+  #include <iterator>   
+  // std::back_inserter, std::ostream_iterator
+  #include <functional>   // std::multiplies(function object)
+
+  int main()
+  {
+    std::vector<int> ivec{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    std::list<int> ilist{ 11, 22, 33, 44, 55, 66, 77, 88, 99 };
+    std::deque<int> ideque;
+
+    // --------------------------------------------------
+
+    std::transform( 
+      ivec.begin(), ivec.end(),                     // source_1
+      ilist.begin(),                                // source_2
+      std::back_inserter(ideque),                   // destination
+      [](int x, int y) { return x * x + y * y; });  // BinaryPred
+
+    std::copy(ivec.begin(), ivec.end(), 
+              std::ostream_iterator<int>{ std::cout, " " });
+    std::cout << '\n';
+    // output -> 1 2 3 4 5 6 7 8 9
+
+    std::copy(ilist.begin(), ilist.end(), 
+              std::ostream_iterator<int>{ std::cout, " " });
+    std::cout << '\n';
+    // output -> 11 22 33 44 55 66 77 88 99
+
+    std::copy(ideque.begin(), ideque.end(), 
+              std::ostream_iterator<int>{ std::cout, " " });
+    std::cout << '\n';
+    // output -> 122 488 1098 1952 3050 4392 5978 7808 9882
+
+    // --------------------------------------------------
+
+    std::transform( ivec.begin(), ivec.end(),     // source_1
+                    ilist.begin(),                // source_2
+                    ivec.begin(),                 // destination
+                    std::multiplies{});           // BinaryPred
+
+    std::copy(ivec.begin(), ivec.end(), 
+              std::ostream_iterator<int>{ std::cout, " " });
+    // output -> 11 44 99 176 275 396 539 704 891
+    std::cout << '\n';
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+                --------------------------------
+                | std::inner_product algorithm |
+                --------------------------------
+*/
+
+/*
+  #include <numeric>    // std::inner_product
+  #include <vector>
+  #include <string>
+  #include <functional> // std::plus, std::equal_to
+
+  int main()
+  {
+    std::vector<std::string> svec1{ 
+        "aa", "bb", "cc", "dd", "ee", "ab", "cd", "ef", "gh" };
+      
+    std::vector<std::string> svec2{ 
+        "aa", "cb", "cc", "ef", "gg", "xx", "yy", "ef", "zz" };
+
+    // to find out which elements 
+    // are common in both vectors with same index
+
+    auto count = std::inner_product( 
+                    svec1.begin(), svec1.end(), 
+                    svec2.begin(), 
+                    0,
+                    std::plus{}, std::equal_to{});
+
+    std::cout << "count = " << count << '\n'; 
+    // output -> count = 3
+
+    // transform  => equal_to
+    // reduce     => plus
+  }
+*/
+
+
 // --------------------------------------------------
 // --------------------------------------------------
 // --------------------------------------------------

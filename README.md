@@ -239,6 +239,10 @@
   - `std::shared_future`
   - `std::packaged_task`
   - condition variable
+  - concurrency in standart library algorithms
+    - execution policies
+    - `std::reduce` algorithm
+    - `std::transform_reduce` algorithm
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
@@ -255,3 +259,6 @@
   - `std::clamp` in <algorithm>
   - deep constness
   - file buffer to stream
+  - `std::accumulate` algorithm
+  - `std::transform` algorithm
+  - `std::inner_product` algorithm
