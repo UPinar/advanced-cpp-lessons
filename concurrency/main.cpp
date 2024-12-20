@@ -6592,34 +6592,56 @@
 */
 
 /*
-  // come back this code later.
-
-  #include <random> 
+  #include <random>     // std::mt19937
   #include <vector>
   #include <execution>
+  #include <algorithm>  // std::for_each
+  #include <cstddef>    // std::size_t
+  #include <mutex>      // std::scoped_lock
+  #include <iostream>
 
-  namespace exec = std::execution;
+  std::mutex g_mtx;
 
   int main()
   {
     std::cout << std::boolalpha;
 
+    constexpr std::size_t N = 10'000'000;
+
+    std::vector<unsigned int> ivec1(N);
+    std::vector<unsigned int> ivec2(N);
+
     std::mt19937 eng;
-    std::uniform_int_distribution dist{ 0u, 100u };
-
-    std::vector<int> ivec1(1'000'000);
-    std::vector<int> ivec2(1'000'000);
 
     eng.seed(111u);
-    std::generate(exec::par, ivec1.begin(), ivec1.end(), 
-                  [&]{ return dist(eng); });
+    std::for_each(std::execution::par, ivec1.begin(), ivec1.end(), 
+                  [&eng](unsigned int& x){
+                    (void)std::scoped_lock{ g_mtx };
+                    x = eng();
+                  });
 
     eng.seed(111u);
-    std::generate(exec::par, ivec2.begin(), ivec2.end(), 
-                  [&]{ return dist(eng); });
+    std::for_each(std::execution::par, ivec2.begin(), ivec2.end(), 
+                  [&eng](unsigned int& x){
+                    (void)std::scoped_lock{ g_mtx };
+                    x = eng();
+                  });
 
-    std::cout << (ivec1 == ivec2) << '\n';
-  }
+    std::cout << "ivec1 == ivec2 : " 
+              << (ivec1 == ivec2) << '\n';
+    // output -> ivec1 == ivec2 : false (not guaranteed)
+    
+    // -----------------------------------------------------  
+
+    std::sort(ivec1.begin(), ivec1.end());  
+    std::sort(ivec2.begin(), ivec2.end());  
+
+    std::cout << "ivec1 == ivec2 : " 
+          << (ivec1 == ivec2) << '\n';
+    // output -> ivec1 == ivec2 : true
+
+    // -----------------------------------------------------  
+ }
 */
 
 /*
@@ -6793,5 +6815,799 @@
 
     // transform  => equal_to
     // reduce     => plus
+  }
+*/
+
+/*
+      -------------------------------------------------------
+      | std::inclusive_scan, std::exclusive_scan algorithms |
+      -------------------------------------------------------
+*/
+
+/*
+            <--- check not_related/std::partial_sum --->
+*/
+
+/*
+  #include <vector>
+  #include <numeric>    
+  // std::inclusive_scan, std::exclusive_scan
+  #include <iterator>   // std::ostream_iterator
+  #include <functional> // std::multiplies
+  #include <execution>
+
+  int main()
+  {
+    std::vector ivec{ 1, 5, 9, 12, 17 };
+
+    // ------------------------------------------------------
+
+    std::inclusive_scan( 
+        std::execution::par,
+        ivec.begin(), ivec.end(), 
+        std::ostream_iterator<int>{ std::cout, " " });
+    // output -> 1 6 15 27 44
+    // (1), (1 + 6), (7 + 9), (15 + 12), (27 + 17)
+
+    std::cout << '\n';
+
+    // ------------------------------------------------------
+
+    std::exclusive_scan( 
+        std::execution::par,
+        ivec.begin(), ivec.end(), 
+        std::ostream_iterator<int>{ std::cout, " " },
+        100);
+    // output -> 100 101 106 115 127
+    // (100), (100 + 1), (100 + 6), (100 + 15), (100 + 27)
+
+    // ------------------------------------------------------
+  }
+*/
+
+// --------------------------------------------------------
+// --------------------------------------------------------
+// --------------------------------------------------------
+// --------------------------------------------------------
+// --------------------------------------------------------
+
+/*
+  #include "thread_pool.h"
+  #include <syncstream>   // std::osyncstream
+  #include <thread>       // std::this_thread::sleep_for
+  #include <chrono>       // std::chrono::milliseconds
+  #include <cstddef>      // std::size_t
+
+  using namespace std::chrono_literals;
+
+  void task_fn()
+  {
+
+    std::osyncstream{ std::cout } 
+      << "thread id = " << std::this_thread::get_id() 
+      << " started running the task\n";
+
+    std::this_thread::sleep_for(300ms);
+
+    std::osyncstream{ std::cout } 
+      << "thread id = " << std::this_thread::get_id() 
+      << " finished running the task\n";
+  }
+
+  int main()
+  {
+    const auto thread_count = std::thread::hardware_concurrency();
+    std::cout << "thread pool includes " 
+              << thread_count << " threads\n";
+
+    Thread_Pool tx_pool;
+    for (std::size_t i{}; i < 2 * thread_count; ++i)
+      tx_pool.push(task_fn);
+
+    std::this_thread::sleep_for(5s);
+
+    // output -> 
+    //  thread pool includes 12 threads
+    //  thread id = 2 started running the task
+    //  thread id = 4 started running the task
+    //  thread id = 3 started running the task
+    //  thread id = 7 started running the task
+    //  thread id = 5 started running the task
+    //  thread id = 6 started running the task
+    //  thread id = 10 started running the task
+    //  thread id = 9 started running the task
+    //  thread id = 8 started running the task
+    //  thread id = 11 started running the task
+    //  thread id = 12 started running the task
+    //  thread id = 13 started running the task
+    //  thread id = 11 finished running the task
+    //  thread id = 6 finished running the task
+    //  thread id = 5 finished running the task
+    //  thread id = 5 started running the task
+    //  thread id = 10 finished running the task
+    //  thread id = 4 finished running the task
+    //  thread id = 4 started running the task
+    //  thread id = 3 finished running the task
+    //  thread id = 3 started running the task
+    //  thread id = 12 finished running the task
+    //  thread id = 12 started running the task
+    //  thread id = 2 finished running the task
+    //  thread id = 2 started running the task
+    //  thread id = 9 finished running the task
+    //  thread id = 7 finished running the task
+    //  thread id = 7 started running the task
+    //  thread id = 13 finished running the task
+    //  thread id = 13 started running the task
+    //  thread id = 8 finished running the task
+    //  thread id = 6 started running the task
+    //  thread id = 9 started running the task
+    //  thread id = 10 started running the task
+    //  thread id = 11 started running the task
+    //  thread id = 8 started running the task
+    //  thread id = 5 finished running the task
+    //  thread id = 12 finished running the task
+    //  thread id = 9 finished running the task
+    //  thread id = 6 finished running the task
+    //  thread id = 13 finished running the task
+    //  thread id = 3 finished running the task
+    //  thread id = 8 finished running the task
+    //  thread id = 10 finished running the task
+    //  thread id = 2 finished running the task
+    //  thread id = 4 finished running the task
+    //  thread id = 11 finished running the task
+    //  thread id = 7 finished running the task
+  }
+*/
+
+/*
+                      -------------------
+                      | <atomic> module | 
+                      -------------------
+*/
+
+/*
+  paylaşımlı kullanılan değişkenler için herhangi bir 
+  senkronizasyon mekanizması olmadığında ve birden fazla 
+  thread bu değişkenlere okuma amaçlı erişim sağlayıp, 
+  en az 1 thread yazma amaçlı erişim sağlıyor ise 
+  data race oluşur(tanımsız davranış).
+
+                    ----------------------
+
+  torn read : değişkeni ne eski değerinde ne de yeni değerinde 
+              okumak(yazma işlemi sırasında okuma işlemi yapmak).
+
+  torn write :  değişkene yazma işlemi yapılırken(henüz bitmemiş)
+                tekrardan yazmak.
+
+                    ----------------------
+
+  değişkenin atomic olması, interleaving rsikini ortadan kaldırır.
+  atomic değişken üzerinde, bir thread read-modify-write işlemleri 
+  yaparken, başka bir thread herhangi bir işlem yapamaz.
+  torn read ve torn write durumları oluşmaz.
+
+                    ----------------------
+
+  sequenced before : 
+    (tek bir thread ile ilgili - Intrathread relation)
+
+  bir threaddeki işlemlerin aralarındaki 
+  sequence point ilişkileri.
+
+  happens before : 
+    (tek veya birden fazla thread ile ilgili olabilir.)
+    visibility ile alakalı bir terim.
+
+    thread_A            thread_B
+    operation_1         operation_2
+
+    operation_1 ve operation_2 arasında happens before ilişkisi
+    operation_1'in oluşturduğu sonuç operation_2 tarafından
+    gözlenebilir bir durumda olacak.
+
+    zamansal olarak operation_1 in daha önce gerçekleşmiş 
+    olması durumu, operation_2 esnasında operation_1'in 
+    sonucunun gözlemlenebileceği anlamına gelmez.
+
+    örneğin operation_1'deki değişiklik cache'te yapılıp henüz
+    belleğe yazılmamıştır, bu esnada operation_2 başlar 
+    ve operation_1'de değiştirilen fakat belleğe yazılmamış olan
+    değeri okur. bu durumda operation_1'in sonucu operation_2
+    tarafından gözlenemez.
+
+                    ----------------------
+
+    sequencial consistency : birden fazla thread olsa da,
+    bu threadlerdeki işlemlerin global bir gerçekleşme sırası var
+    ve her thread aynı sırayı izliyor(gözlüyor).
+
+            <---- check sequencial_consistency.png ---->
+
+    atomik değişkenlerdeki en yüksek garanti.
+
+                    ----------------------
+*/
+
+/*
+  #include <atomic>
+
+  int main()
+  {
+    std::atomic_flag flag;
+    // "std::atomic_flag" is guaranteed to be lock-free
+    // there is not any mutex used when std::atomic_flag is used.
+    // std::atomic_flag is a class type.
+
+    std::atomic<int*> iptr;
+    // "std::atomic" is a class template.
+    // is NOT guaranteed to be lock-free.
+  }
+*/
+
+/*
+  // primary template for user-defined types and bool
+  template <typename T>
+  struct Atomic {};
+
+  // explicit specialization for integral types
+  template <> struct Atomic<int> {};
+  template <> struct Atomic<long> {};
+  template <> struct Atomic<char> {};
+
+  // partial specialization for pointer types
+  template <typename T>
+  struct Atomic<T*> {};
+*/
+
+/*
+  #include <atomic>
+
+  struct AStruct {
+    int m_a, m_b;
+  };
+
+  int main()
+  {
+    // -------------------------------------------------
+
+    std::atomic<bool> a1;     // primary template
+    std::atomic<AStruct> a2;  // primary template
+
+    // -------------------------------------------------
+
+    // integral types are different explicit specializations
+    std::atomic<int> a3;      // explicit specialization
+    std::atomic<long> a4;     // explicit specialization
+
+    // -------------------------------------------------
+
+    int i_arr[5]{};
+    std::atomic<int*> a5{ i_arr };    
+     // partial specialization
+
+    // -------------------------------------------------
+  }
+*/
+
+/*
+  #include <atomic>   // std::atomic_flag, ATOMIC_FLAG_INIT
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    std::atomic_flag flag = ATOMIC_FLAG_INIT;
+
+    // ----------------------------------------------------
+
+    flag.clear();           
+    // will clear the flag
+
+    // ----------------------------------------------------
+
+    bool b1 = flag.test_and_set();    
+    // will set the flag and return the previous value  
+    // if the flag was set before, it will return true
+    // if the flag was not set before, it will return false
+
+    std::cout << "b1 = " << b1 << '\n';
+    // output -> b1 = false
+
+    bool b2 = flag.test_and_set();
+    std::cout << "b2 = " << b2 << '\n';
+    // output -> b2 = true
+
+    // ----------------------------------------------------
+  }
+*/
+
+/*
+  #include <atomic>
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    std::atomic_flag flag1;   // default initialization
+    // default initialization after C++20 
+    // will initialize flag's value with "false"
+
+    std::cout << flag1.test() <<'\n';   // output -> false
+
+    while (flag1.test_and_set())
+      ; // null statement
+
+    // if flag1 is set, this loop will be an infinite loop.
+    // if any other thread will clear the flag1,
+    // loop will be terminated.
+  }
+*/
+
+/*
+  #include <atomic>   // std::atomic_flag
+  #include <vector>
+  #include <thread>   // std::jthread
+
+  class SpinLockMutex {
+  private:
+    std::atomic_flag m_flag;
+
+  public:
+    SpinLockMutex()
+    {
+      m_flag.clear();
+    }
+
+    void lock() 
+    {
+      while (m_flag.test_and_set())
+        ; // null statement
+    }
+
+    void unlock() 
+    {
+      m_flag.clear();
+    }
+  };
+
+  SpinLockMutex g_mtx;
+  unsigned long long g_var{};     // shared variable
+
+  void func_1()
+  {
+    for (int i = 0; i < 1'000'000; ++i) 
+      ++g_var;
+  }
+
+  void func_2()
+  {
+    for (int i = 0; i < 1'000'000; ++i) 
+    {
+      g_mtx.lock();
+      ++g_var;
+      g_mtx.unlock();
+    }
+  }
+
+  int main()
+  {
+    {
+      std::jthread jt1(func_1);
+      std::jthread jt2(func_1);
+      std::jthread jt3(func_1);
+      std::jthread jt4(func_1);
+      std::jthread jt5(func_1);   
+    }
+
+    std::cout << "g_var = " << g_var << '\n';
+    // output -> g_var = 1104273  ---> data race
+
+    g_var = 0;
+
+    {
+      std::jthread jt1(func_2);
+      std::jthread jt2(func_2);
+      std::jthread jt3(func_2);
+      std::jthread jt4(func_2);
+      std::jthread jt5(func_2);   
+    }
+
+    std::cout << "g_var = " << g_var << '\n';
+    // output -> g_var = 5000000
+  }
+*/
+
+/*
+  #include <atomic>
+  #include <thread>   // std::jthread
+
+  int main()
+  {
+    // ----------------------------------------------------
+
+    std::atomic<int> a1 = 10;
+    // a1's type is std::atomic_int(type alias)
+    std::atomic a2      = 20;   // CTAD
+    // a2's type is std::atomic_int
+
+    // ----------------------------------------------------
+
+    int ival = 0;
+
+    auto fn1 = [&ival] {
+      for (int i = 0; i < 100'000; ++i)
+        ++ival;
+    };
+
+    {
+      std::jthread jt1{ fn1 };
+      std::jthread jt2{ fn1 };
+      std::jthread jt3{ fn1 };
+      std::jthread jt4{ fn1 };
+    }
+
+    std::cout << "ival = " << ival << '\n';
+    // output -> ival = 136549
+
+    // ----------------------------------------------------
+
+    std::atomic_int a_ival = 0;
+
+    auto fn2 = [&a_ival] {
+      for (int i = 0; i < 100'000; ++i)
+        ++a_ival;
+    };
+
+    {
+      std::jthread jt1{ fn2 };
+      std::jthread jt2{ fn2 };
+      std::jthread jt3{ fn2 };
+      std::jthread jt4{ fn2 };
+    }
+
+    std::cout << "a_ival = " << a_ival << '\n';
+    // output -> a_ival = 400000
+
+    // operator++() - pre-increment is an atomic operation
+
+    // ----------------------------------------------------
+
+    a_ival = 0;
+
+      auto fn3 = [&a_ival] {
+      for (int i = 0; i < 100'000; ++i)
+        a_ival++;
+    };
+
+    {
+      std::jthread jt1{ fn3 };
+      std::jthread jt2{ fn3 };
+      std::jthread jt3{ fn3 };
+      std::jthread jt4{ fn3 };
+    }
+
+    std::cout << "a_ival = " << a_ival << '\n';
+    // output -> a_ival = 400000
+
+    // operator++(int) - post-increment is an atomic operation
+
+    // ----------------------------------------------------
+
+    a_ival = 0;
+
+      auto fn4 = [&a_ival] {
+      for (int i = 0; i < 100'000; ++i)
+        a_ival += 1;
+    };
+
+    {
+      std::jthread jt1{ fn4 };
+      std::jthread jt2{ fn4 };
+      std::jthread jt3{ fn4 };
+      std::jthread jt4{ fn4 };
+    }
+
+    std::cout << "a_ival = " << a_ival << '\n';
+    // output -> a_ival = 400000
+
+    // operator+= is an atomic operation
+
+    // ----------------------------------------------------
+
+      a_ival = 0;
+
+      auto fn5 = [&a_ival] {
+      for (int i = 0; i < 100'000; ++i)
+        a_ival = a_ival + 1;
+        // a_ival.store(a_ival.load() + 1);
+    };
+
+    {
+      std::jthread jt1{ fn5 };
+      std::jthread jt2{ fn5 };
+      std::jthread jt3{ fn5 };
+      std::jthread jt4{ fn5 };
+    }
+
+    std::cout << "a_ival = " << a_ival << '\n';
+    // output -> a_ival = 166707
+
+    // 1. operator int() function is atomic (getting a_ival's value)
+    // 2. operator+ for int is NOT an atomic operation
+    // 3. setting a_ival's value is an atomic operation
+
+    // ----------------------------------------------------
+  }
+*/
+
+/*
+  #include <atomic>
+
+  int main()
+  {
+    // ------------------------------------------------------
+
+    // assigment from non-atomic to atomic  VALID
+    // assigment from atomic to non-atomic  VALID
+    // asignment from atomic to atomic      SYNTAX ERROR
+
+    // ------------------------------------------------------
+
+    std::atomic a1 = 5;
+    std::atomic a2 = 10;
+
+    auto a3 = a1; // syntax error
+    //  error: use of deleted function 
+    //  'std::atomic<int>::atomic(const std::atomic<int>&)'
+    // NOT copy constructible
+
+    a1 = a2;  // syntax error (not )
+    // error: use of deleted function 
+    // 'std::atomic<int>& std::atomic<int>::operator=(
+    //  const std::atomic<int>&)'
+    // NOT copy assignable
+
+    // ------------------------------------------------------
+
+    std::atomic a4 = 10;
+    std::atomic a5 = 20;
+
+    a4 = a5.load();   // assingment from non-atomic to atomic
+    int ival = a4;    // assigment from atomic to non-atomic   
+
+    // ------------------------------------------------------
+  }
+*/
+
+/*
+  #include <atomic>
+  #include <thread>   // std::jthread
+
+  class Atomic_Counter {
+  private:
+    std::atomic<int> m_counter;
+
+  public:
+    Atomic_Counter() : m_counter(0) {}
+    Atomic_Counter(int val) : m_counter(val) {}
+
+    int operator++(){ return ++m_counter; }
+    // ++expr is not LValue expression, it is RValue expression!
+    // returning int, NOT Atomic_Counter&
+
+    int operator--(){ return --m_counter; }
+    // --expr is not LValue expression, it is RValue expression!
+    // returning int, NOT Atomic_Counter&
+
+    int operator++(int){ return m_counter++; }
+    int operator--(int){ return m_counter--; }
+
+    operator int() const { return m_counter.load(); }
+    int get() const { return m_counter.load(); }
+  };
+
+  Atomic_Counter g_ac = 0;
+
+  void foo()
+  {
+    for (int i = 0; i < 10'000; ++i)
+      ++g_ac;
+  }
+
+  void bar()
+  {
+    for (int i = 0; i < 10'000; ++i)
+      --g_ac;
+  }
+
+  int main()
+  {
+    {
+      std::jthread jt1{ foo };
+      std::jthread jt2{ bar };
+    }
+
+    std::cout << "g_ac = " << g_ac << '\n';
+    // output -> g_ac = 0
+  }
+*/
+
+/*
+  // g++ -o prog main.cpp -std=c++23 -latomic
+
+  #include <atomic>
+  #include <memory>   // std::shared_ptr
+
+  struct AStruct {
+    int m_a, m_b, m_c;
+  };
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    std::atomic<int> a1;
+    std::cout << "a1.is_lock_free() = " 
+              << a1.is_lock_free() << '\n';
+    // output -> a1.is_lock_free() = true
+
+    std::atomic<unsigned long long> a2;
+    std::cout << "a2.is_lock_free() = " 
+              << a2.is_lock_free() << '\n';
+    // output -> a2.is_lock_free() = true
+
+    std::atomic<unsigned long long*> a3;
+    std::cout << "a3.is_lock_free() = " 
+              << a3.is_lock_free() << '\n';
+    // output -> a3.is_lock_free() = true
+
+    std::atomic<AStruct> a4;
+    std::cout << "a4.is_lock_free() = " 
+              << a4.is_lock_free() << '\n';
+    // output -> a4.is_lock_free() = false
+
+    std::atomic<std::shared_ptr<int>> a5;
+    std::cout << "a5.is_lock_free() = " 
+              << a5.is_lock_free() << '\n';
+    // output -> a5.is_lock_free() = false
+  }
+*/
+
+/*
+  #include <atomic>
+
+  int main()
+  {
+    std::atomic a_int(10);
+
+    auto ret = a_int.fetch_add(5);  
+    // fetch functions(fetch_xxx) are atomic functions 
+    // ret's type is `int`
+
+    std::cout << "ret = " << ret << '\n';
+    // output -> ret = 10
+    std::cout << "x.load() = " << a_int.load() << '\n';
+    // output -> x.load() = 15
+  }
+*/
+
+/*
+  #include <atomic>
+
+  int main()
+  {
+    std::atomic<int> a_int = 5;
+    int ival = a_int.exchange(11);
+
+    std::cout << "ival = " << ival << '\n';
+    // output -> ival = 5
+    std::cout << "a_int.load() = " << a_int.load() << '\n';
+    // output -> a_int.load() = 11
+  }
+*/
+
+/*
+  // CAS(Compare And Swap) operations
+
+  // mental model for "compare_exchange_strong" operation
+  // "compare_exchange_strong" is an atomic operation.
+
+  bool Atomic::compare_exchange_strong(T& expected, T desired)
+  {
+    Lock lock;
+    T temp = m_value;
+
+    if (temp != expected) {
+      expected = temp;
+      return false;
+    }
+
+    m_value = desired;
+    return true;
+  }
+
+  - Atomik değişkenlerin değeri multi-thread programlarda
+    birden fazla thread tarafından değiştirilebilir.
+    Yazılan kodun lojik yapısı açısından iki atomik işlem
+    arasında gerçekleşen bu değişikliğin yakalanması gerekir.
+    compare_exchange_strong bu değişikliği yakalamak için
+    kullanılan bir fonksiyondur.
+*/
+
+/*
+  #include <atomic>
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    // -------------------------------------------------
+
+    std::atomic<int> a1(33);
+    int ival = 44;
+
+    bool ret = a1.compare_exchange_strong(ival, 99);
+
+    std::cout << "ret = " << ret << '\n';
+    // output -> ret = false
+    std::cout << "ival = " << ival << '\n';
+    // output -> ival = 33
+    std::cout << "a1.load() = " << a1.load() << '\n';
+    // output -> a1.load() = 33
+    // -------------------------------------------------
+
+    a1.store(33);
+    ival = 33;
+
+    ret = a1.compare_exchange_strong(ival, 99);
+
+    std::cout << "ret = " << ret << '\n';
+    // output -> ret = true
+    std::cout << "ival = " << ival << '\n';
+    // output -> ival = 33
+    std::cout << "a1.load() = " << a1.load() << '\n';
+    // output -> a1.load() = 99
+
+    // -------------------------------------------------
+  }
+*/
+
+/*
+  #include <concepts>
+  #include <atomic>
+
+  template <std::integral T>
+  void Atomic_Increment(std::atomic<T>& atomic_val)
+  {
+    T temp{ atomic_val };
+
+    // other thread might change "atomic_val" value in this line!
+    // if that change happens, 
+    // "temp" and "atomic_val" won't be same
+    // so "compare_exchange_weak" function will return false 
+    // so "atomic_val"'s new value will be assign to "temp"
+
+    // in the next iteration
+    // if "atomic_val" is not changed by other thread
+    // "temp" and "atomic_val" will be same
+    // so "atomic_val" will be incremented by 1.
+
+    while(!atomic_val.compare_exchange_weak(temp, temp + 1))
+      ; // null statement
+  }
+*/
+
+/*
+  #include <atomic>
+
+  template <typename T>
+  void Fetch_Multiply(std::atomic<T>& atomic_val, T mul)
+  {
+    T old_value = atomic_val.load();
+
+    while (!atomic_val.compare_exchange_weak( old_value, 
+                                              old_value * mul))
+      ; // null statement
   }
 */

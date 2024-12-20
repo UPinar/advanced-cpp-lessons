@@ -240,9 +240,13 @@
   - `std::packaged_task`
   - condition variable
   - concurrency in standart library algorithms
-    - execution policies
+    - global execution policy objects
     - `std::reduce` algorithm
     - `std::transform_reduce` algorithm
+    - `std::inclusive_scan`, `std::exclusive_scan` algorithms
+  - `<atomic>` module
+    - `std::atomic_flag` class
+    - `std::atomic` class template
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
@@ -262,3 +266,4 @@
   - `std::accumulate` algorithm
   - `std::transform` algorithm
   - `std::inner_product` algorithm
+  - `std::partial_sum` algorithm

@@ -1908,6 +1908,59 @@
   }
 */
 
+/*
+                  ------------------------------
+                  | std::partial_sum algorithm |
+                  ------------------------------
+*/
+
+/*
+  #include <vector>
+  #include <numeric>    // std::partial_sum
+  #include <iterator>   // std::ostream_iterator
+  #include <functional> // std::multiplies
+
+  int main()
+  {
+    std::vector ivec{ 1, 5, 9, 12, 17 };
+
+    // ------------------------------------------------------
+
+    std::partial_sum( 
+        ivec.begin(), ivec.end(), 
+        std::ostream_iterator<int>{ std::cout, " " });
+    // output -> 1 6 15 27 44
+    // (1), (1 + 6), (7 + 9), (15 + 12), (27 + 17)
+    // default binary predicate is std::plus{}
+
+    std::cout << '\n';
+
+    // ------------------------------------------------------
+
+    std::partial_sum( 
+        ivec.begin(), ivec.end(), 
+        std::ostream_iterator<int>{ std::cout, " " },
+        std::multiplies{});
+    // output -> 1 5 45 540 9180
+    // (1), (1 * 5), (5 * 9), (45 * 12), (540 * 17)
+
+    std::cout << '\n';
+
+    // ------------------------------------------------------
+
+    std::partial_sum( 
+        ivec.begin(), ivec.end(), 
+        std::ostream_iterator<int>{ std::cout, " " },
+        [](int a, int b){ return a * a + b; });
+    // output -> 1 6 45 2037 4149386
+
+    //  (1), (1 * 1 + 5), (6 * 6 + 9), 
+    //  (45 * 45 + 12), (2037 * 2037 + 17)
+
+    // ------------------------------------------------------
+  }
+*/
+
 
 // --------------------------------------------------
 // --------------------------------------------------
