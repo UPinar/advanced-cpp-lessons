@@ -247,6 +247,7 @@
   - `<atomic>` module
     - `std::atomic_flag` class
     - `std::atomic` class template
+    - `std::memory_order`
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax

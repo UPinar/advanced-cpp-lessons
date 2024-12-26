@@ -7611,3 +7611,942 @@
       ; // null statement
   }
 */
+
+/*
+  #include <atomic>   
+  // std::atomic_int, std::atomic_bool, std::atomic_long
+  #include <concepts> // std::same_as
+
+  int main()
+  {
+    constexpr auto b1 = 
+      std::same_as<std::atomic<int>, std::atomic_int>;
+    // b1 -> true
+
+    constexpr auto b2 = 
+      std::same_as<std::atomic<bool>, std::atomic_bool>;
+    // b2 -> true
+
+    constexpr auto b3 = 
+      std::same_as<std::atomic<long>, std::atomic_long>;
+    // b3 -> true
+  }
+*/
+
+/*
+  // is_lock_free        -> run-time
+  // is_always_lock_free -> compile-time 
+
+  #include <atomic>
+  #include <memory>
+
+  struct AStruct {
+    int m_a, m_b, m_c;
+  };
+
+  struct BStruct {
+    int m_a;
+  };
+
+  int main()
+  {
+    std::cout << std::boolalpha;
+
+    // --------------------------------------------------
+
+    std::atomic a_i1 = 5;
+    std::cout << "a_i1.is_lock_free() = " 
+              << a_i1.is_lock_free() << '\n';
+    // output -> a_i1.is_lock_free() = true
+
+    constexpr auto b1 = std::atomic_int::is_always_lock_free;
+    // b1 -> true
+
+    // --------------------------------------------------
+
+    std::atomic a_ll1 = 555LL;
+    std::cout << "a_ll1.is_lock_free() = " 
+              << a_ll1.is_lock_free() << '\n';
+    // output -> a_ll1.is_lock_free() = true
+
+    constexpr auto b2 = std::atomic_llong::is_always_lock_free;
+    // b2 -> true
+
+    // --------------------------------------------------
+
+    std::atomic<std::shared_ptr<int>> a_sp1;
+    std::cout << "a_sp1.is_lock_free() = " 
+              << a_sp1.is_lock_free() << '\n';
+    // output -> a_sp1.is_lock_free() = false
+
+    constexpr auto b3 = 
+      std::atomic<std::shared_ptr<int>>::is_always_lock_free;
+    // b3 -> false
+
+    // --------------------------------------------------
+
+    std::atomic<AStruct> a_as1;
+    std::cout << "a_as1.is_lock_free() = " 
+              << a_as1.is_lock_free() << '\n';
+    // output -> a_as1.is_lock_free() = false
+    //  implementation-defined
+
+    constexpr auto b4 = 
+      std::atomic<AStruct>::is_always_lock_free;
+    // b4 -> false
+
+    // --------------------------------------------------
+
+    std::atomic<BStruct> a_bs1;
+    std::cout << "a_bs1.is_lock_free() = " 
+              << a_bs1.is_lock_free() << '\n';
+    // output -> a_bs1.is_lock_free() = true
+    //  implementation-defined
+
+    constexpr auto b5 = 
+      std::atomic<BStruct>::is_always_lock_free;
+    // b5 -> true
+
+    // --------------------------------------------------
+  }
+*/
+
+/*
+              <--- check atomic_operations.png --->
+*/
+
+/*
+  #include <atomic>
+
+  int main()
+  {
+    std::atomic a1 = 20;
+    std::atomic a2 = 20;
+
+    auto res1 = a1 += 2;            
+    // returning new value (non-reference)
+    auto res2 = a2.fetch_add(2);    
+    // returning old value (non-reference)
+
+    std::cout << "a1 = " << a1 << '\n';   
+    // output -> a1 = 22
+    std::cout << "a2 = " << a2 << '\n';   
+    // output -> a2 = 22
+
+    std::cout << "res1 = " << res1 << '\n'; 
+    // output -> res1 = 22
+    std::cout << "res2 = " << res2 << '\n';
+    // output -> res2 = 20
+  }
+*/
+
+/*
+  #include <atomic>
+  #include <vector>
+  #include <thread>   // std::jthread
+
+  std::atomic g_a1 = 0;
+  std::atomic g_a2 = 0;
+  std::atomic g_a3 = 0;
+  std::atomic g_a4 = 0;
+  std::atomic g_a5 = 0;
+
+  void func()
+  {
+    for (int i = 0; i < 10'000; ++i)
+      g_a1.exchange(g_a1 + 1);    // not indivisible
+  }
+
+  void func2()
+  {
+    for (int i = 0; i < 10'000; ++i)
+      ++g_a2;                     // indivisible
+  }
+
+  void func3()
+  {
+    for (int i = 0; i < 10'000; ++i)
+      g_a3++;                     // indivisible
+  }
+
+  void func4()
+  {
+    for (int i = 0; i < 10'000; ++i)
+      g_a4.fetch_add(1);          // indivisible
+  }
+
+  void func5()
+  {
+    for (int i = 0; i < 10'000; ++i)
+    {
+      int expected = g_a5;
+      while (!g_a5.compare_exchange_weak(expected, expected + 1))
+        ; // null statement
+    }
+  }
+
+  int main()
+  {
+    // -----------------------------------------
+
+    {
+      std::vector<std::jthread> tx_vec;
+
+      for (int i = 0; i < 10; ++i)
+        tx_vec.emplace_back(func);
+    }
+
+    std::cout << "g_a1 = " << g_a1 << '\n';
+    // output -> g_a1 = 28469
+
+    // -----------------------------------------
+
+    {
+      std::vector<std::jthread> tx_vec;
+
+      for (int i = 0; i < 10; ++i)
+        tx_vec.emplace_back(func2);
+    }
+
+    std::cout << "g_a2 = " << g_a2 << '\n';
+    // output -> g_a2 = 100000
+
+    // -----------------------------------------
+
+    {
+      std::vector<std::jthread> tx_vec;
+
+      for (int i = 0; i < 10; ++i)
+        tx_vec.emplace_back(func3);
+    }
+
+    std::cout << "g_a3 = " << g_a3 << '\n';
+    // output -> g_a3 = 100000
+
+    // -----------------------------------------
+
+    {
+      std::vector<std::jthread> tx_vec;
+
+      for (int i = 0; i < 10; ++i)
+        tx_vec.emplace_back(func4);
+    }
+
+    std::cout << "g_a4 = " << g_a4 << '\n';
+    // output -> g_a4 = 100000
+
+    // -----------------------------------------
+
+    {
+      std::vector<std::jthread> tx_vec;
+
+      for (int i = 0; i < 10; ++i)
+        tx_vec.emplace_back(func5);
+    }
+
+    std::cout << "g_a5 = " << g_a5 << '\n';
+    // output -> g_a4 = 100000
+
+    // -----------------------------------------
+  }
+*/
+
+/*
+  #include <atomic>
+
+  int main()
+  {
+    std::atomic a1 = 10;
+
+    ++a1;
+    a1.operator++();
+    // Those 2 lines are equivalent.
+
+    a1++;
+    a1.operator++(0);
+    // Those 2 lines are equivalent.
+
+    int val1 = a1;
+    int val2 = a1.operator int();
+    // Those 2 lines are equivalent.
+  }
+*/
+
+/*
+  #include <atomic>   // std::atomic_store, std::atomic_load
+
+  int main()
+  {
+    std::atomic a1 = 10;
+
+    a1.store(22);
+    std::atomic_store(&a1, 22);
+    // Those 2 lines are equivalent.
+
+    int val1 = a1.load();
+    int val2 = std::atomic_load(&a1);
+    // Those 2 lines are equivalent.
+
+    // std::atomic_stroe and std::atomic_load are global functions
+    // that can be used with C style atomic operations.
+  }
+*/
+
+/*
+  #include <atomic>
+  #include <thread>
+
+  std::atomic_int g_a1 = 0;
+  volatile int g_v1 = 0;
+
+  int main()
+  {
+    auto fn_inc_atomic = []{
+      for (int i = 0; i < 1'000'000; ++i)
+        ++g_a1;
+    };
+
+    auto fn_inc_volatile = []{
+      for (int i = 0; i < 1'000'000; ++i)
+        ++g_v1;
+    };
+
+    auto fn_dec_atomic = []{
+      for (int i = 0; i < 1'000'000; ++i)
+        --g_a1;
+    };
+
+    auto fn_dec_volatile = []{
+      for (int i = 0; i < 1'000'000; ++i)
+        --g_v1;
+    };
+    
+    // ----------------------------------------
+
+    {
+      std::jthread jt1{ fn_inc_atomic };
+      std::jthread jt2{ fn_dec_atomic };
+    }
+
+    std::cout << "g_a1 = " << g_a1 << '\n';
+    // output -> g_a1 = 0
+    // operations are indivisible so no data race
+
+    // ----------------------------------------
+
+    {
+      std::jthread jt1{ fn_inc_volatile };
+      std::jthread jt2{ fn_dec_volatile };
+    }
+
+    //  warning: '--' expression of 
+    //  'volatile'-qualified type is deprecated
+    //  warning: '++' expression of 
+    //  'volatile'-qualified type is deprecated 
+
+    std::cout << "g_v1 = " << g_v1 << '\n';
+    // output -> g_v1 = 390469
+
+    // ----------------------------------------
+  }
+*/
+
+/*
+  ABA problem : 
+    kırmızı ışıkta bekliyorsun, yeşil ışık yanıyor fakat farkında
+    değilsin ve ışık tekrardan kırmızıya dönüyor. 
+    senin tek bildiğin durum ışığın kırmızı olması.
+*/
+
+/*
+  //  atomik değişkenin değeri 10(Senaryo-A), 
+  //  fakat başka bir thread değişkeni 50 yapıyor(Senaryo-B), 
+  //  "compare_exchange_weak" fonksiyonu değişkenin 
+  //  "temp" değerini 50 ye çekiyor.
+  //  Başka bir thread değişkenin tekrar 10 yapıyor(Senaryo-A).
+  //  "compare_exchange_weak" fonksiyonu "temp"i 10 a çekiyor.
+  //  temp ve değişken eşit olduğu için "compare_exchange_weak" 
+  //  fonksiyonu değişkenin değerini 1 arttırıyor.
+
+  #include <concepts>   // std::integral
+  #include <atomic>
+
+  template <std::integral T>
+  void inc_atomic(std::atomic<T>& x)
+  {
+    T temp{ x };
+    while(!x.compare_exchange_weak(temp, temp + 1))
+      ; // null statement
+  }
+*/
+
+/*
+  #include <atomic>
+  #include <string>
+  #include <thread>
+  #include <vector>
+
+  std::atomic_bool g_is_ready{ false };
+  std::atomic_bool g_is_done{ false };
+  std::atomic_int  g_counter{ 0 };
+
+  void lottery()
+  {
+    ++g_counter;
+
+    while (!g_is_ready)
+      ; // null statement
+
+    for (volatile int i = 0; i < 30'000; ++i)
+      ; // null statement 
+    // this loop is for delaying the thread
+    // volatile for compiler not to optimize this loop
+
+    bool expected{ false };
+
+    if (g_is_done.compare_exchange_strong(expected, true))
+    {
+      std::cout << std::this_thread::get_id() 
+                << " is the winner\n";
+    }
+  }
+
+  int main()
+  {
+    std::vector<std::jthread> tx_vec;
+
+    const int thread_count = 10;
+
+    for (int i = 0; i < thread_count; ++i)
+      tx_vec.emplace_back(lottery);
+
+    while (g_counter != thread_count)
+      ; // null statement
+
+    g_is_ready = true;
+
+    // output -> 6 is the winner
+  }
+*/
+
+/*
+                        ---------------------
+                        | std::memory_order |
+                        ---------------------
+*/
+
+/*
+  <--- check memory_order.png --->
+  <--- check read_modify_write.png --->
+  <--- check memory_order_2.png
+
+
+  memory_order_relaxed : ordering ya da senkronizasyon konusunda
+                          hiçbir garanti vermez.
+*/
+
+/*
+  // in sequential consistency g_atom_ival value must be 1 
+  // if 4 different threads will run those 4 functions.
+
+  #include <atomic>
+  #include <thread>
+  #include <cassert>
+
+  std::atomic_bool g_atom_xflag, g_atom_yflag;
+  std::atomic_int  g_atom_ival;
+
+  void set_x()
+  {
+    g_atom_xflag.store(true);
+  }
+
+  void set_y()
+  {
+    g_atom_yflag.store(true);
+  }
+
+  void read_x_then_y()
+  {
+    while (!g_atom_xflag.load())
+      ; // null statement
+
+    // g_atom_xflag guaranteed to be true here.
+    // In global order, if g_atom_yflag stored before g_atom_xflag,
+    // g_atom_yflag is also guaranteed to be true here.
+
+    if (g_atom_yflag.load())
+      ++g_atom_ival;
+  }
+
+  void read_y_then_x()
+  {
+    while (!g_atom_yflag.load())
+      ; // null statement
+
+    // g_atom_yflag guaranteed to be true here.
+    // In global order, if g_atom_xflag stored before g_atom_yflag,
+    // g_atom_xflag is also guaranteed to be true here.
+
+    if (g_atom_xflag.load())
+      ++g_atom_ival;
+  }
+
+  void func()
+  {
+    g_atom_xflag.store(false);
+    g_atom_yflag.store(false);
+    g_atom_ival.store(0);
+
+    std::thread t1{ set_x };
+    std::thread t2{ set_y };
+    std::thread t3{ read_x_then_y };
+    std::thread t4{ read_y_then_x };
+
+    t1.join(); 
+    t2.join(); 
+    t3.join(); 
+    t4.join();
+
+    assert(g_atom_ival.load() != 0);
+  }
+
+  int main()
+  {
+    for (int i = 0; i < 10'000; ++i)
+      func();
+  }
+*/
+
+/*
+  // sequential consistency, atomik değişken üzerinde 
+  // senkronizasyon sağlar.
+
+  #include <atomic>
+  #include <thread>
+
+  std::atomic_bool g_atom_flag{ false };
+  int g_ival = 0;
+
+  void producer()
+  {
+    g_ival = 111111;
+    g_atom_flag = true;
+  }
+
+  void consumer()
+  {
+    while (!g_atom_flag.load())
+      ; // null statement
+
+    // g_atom_flag guaranteed to be true here.
+    // so "g_ival" have a happens before(synchronization) relationship
+    // it is guaranteed to be 111111.
+
+    std::cout << "g_ival = " << g_ival << '\n';
+  }
+
+  int main()
+  {
+    {
+      std::jthread jt1{ producer };
+      std::jthread jt2{ consumer };
+    }
+    // output -> g_ival = 111111
+  }
+*/
+
+/*
+  // acquire_release semantics does not have a global order 
+  // but there is a synchronization (happens before relationship).
+
+  // release'den önceki kodlar, release sonrasına alınamazlar.
+  // derleyici böyle bir optimizasyon yapamaz.
+*/
+
+/*
+  #include <atomic>     // std::atomic_bool
+  #include <thread>     // std::jthread
+  #include <cassert>
+
+  std::atomic_bool g_atom_flag{ false };
+  int g_ival = 0;
+
+  void producer()
+  {
+    g_ival = 111111;
+    g_atom_flag.store(true, std::memory_order_release);
+    // it is guaranteed that g_ival will be set to 111111
+    // before the store operation(g_atom_flag is set to true).
+    // compiler can not optimize the code in a way that
+    // g_ival will be set to 111111 after the store operation
+  }
+
+  void consumer()
+  {
+    while (!g_atom_flag.load(std::memory_order_acquire))
+      ; // null statement
+
+    std::cout << "g_ival = " << g_ival << '\n';
+    // it is guaranteed that g_ival will be printed 
+    // after the load operation of g_atom_flag.
+    // compiler can not optimize the code in a way that
+    // g_ival will be printed before the load operation 
+    // of g_atom_flag.
+  }
+
+  void func()
+  {
+    g_atom_flag = false;
+    g_ival = 0;
+
+    {
+      std::jthread jt1{ producer };
+      std::jthread jt2{ consumer };
+    }
+
+    assert(g_ival == 111111);
+  }
+
+  int main()
+  {
+    func();   // output -> g_ival = 111111
+  }
+*/
+
+/*
+  #include <atomic>
+  #include <string>
+  #include <cassert>
+  #include <thread>
+
+  std::atomic<std::string*> g_atom_pstr;
+  int g_data;
+
+  void producer()
+  {
+    std::string* p_str = new std::string("hello world");
+    g_data = 44;
+
+    g_atom_pstr.store(p_str, std::memory_order_release);
+  }
+  // aynı atomic değişken üzerinde(g_atom_pstr), 
+  // bir başka threadde load işlemi "std::memory_order_acquire"
+  // ile yapılırsa, store'dan önce yapılan işlemlerin sonuçlarını
+  // gözleme garantisi vardır.
+
+  void consumer()
+  {
+    std::string* p_str;
+    while (!(p_str = g_atom_pstr.load(std::memory_order_acquire)))
+      ; // null statement
+
+    assert(*p_str == "hello world");
+    assert(g_data == 44);
+  }
+
+  int main()
+  {
+    std::thread t1{ producer };
+    std::thread t2{ consumer };
+
+    t1.join();
+    t2.join();
+  }
+*/
+
+/*
+  #include <atomic>   // std::atomic_bool
+  #include <string>
+  #include <thread>   // std::jthread
+  #include <cassert>  // assert
+
+  std::atomic_bool g_atom_flag1 = false;
+  std::atomic_bool g_atom_flag2 = false;
+
+  std::string g_str{};    // shared variable
+
+  void func_1()
+  {
+    g_str = "world";
+    g_atom_flag1.store(true, std::memory_order_release);
+  }
+
+  void func_2()
+  {
+    while (!g_atom_flag1.load(std::memory_order_acquire))
+      ; // null statement
+
+    g_str += " galaxy";
+    g_atom_flag2.store(true, std::memory_order_release);
+  }
+
+  void func_3()
+  {
+    while (!g_atom_flag2.load(std::memory_order_acquire))
+      ; // null statement
+
+    g_str += " universe";
+  }
+
+  void test()
+  {
+    g_atom_flag1 = false;
+    g_atom_flag2 = false;
+
+    {
+      std::jthread jt1{ func_1 };
+      std::jthread jt2{ func_2 };
+      std::jthread jt3{ func_3 };
+    }
+
+    assert(g_str == "world galaxy universe");
+  }
+
+  int main()
+  {
+    for (volatile int i = 0; i < 10'000; ++i)
+      test();
+  }
+*/
+
+/*
+  #include <atomic>
+  #include <thread>
+
+  class SpinLockMutex {
+  private:
+    std::atomic_flag m_flag;
+
+  public:
+    SpinLockMutex() { m_flag.clear(); }
+
+    void lock()
+    {
+      while (m_flag.test_and_set(std::memory_order_acquire))
+        ; // null statement
+    }
+
+    void unlock()
+    {
+      m_flag.clear(std::memory_order_release);
+    }
+  };
+
+
+  SpinLockMutex g_mtx;
+  unsigned long long g_var{};     // shared variable
+
+  void func_1()
+  {
+    for (int i = 0; i < 1'000'000; ++i) 
+      ++g_var;
+  }
+
+  void func_2()
+  {
+    for (int i = 0; i < 1'000'000; ++i) 
+    {
+      g_mtx.lock();
+      ++g_var;
+      g_mtx.unlock();
+    }
+  }
+
+  int main()
+  {
+    {
+      std::jthread jt1(func_1);
+      std::jthread jt2(func_1);
+      std::jthread jt3(func_1);
+      std::jthread jt4(func_1);
+      std::jthread jt5(func_1);   
+    }
+
+    std::cout << "g_var = " << g_var << '\n';
+    // output -> g_var = 1435046  ---> data race
+
+    g_var = 0;
+
+    {
+      std::jthread jt1(func_2);
+      std::jthread jt2(func_2);
+      std::jthread jt3(func_2);
+      std::jthread jt4(func_2);
+      std::jthread jt5(func_2);   
+    }
+
+    std::cout << "g_var = " << g_var << '\n';
+    // output -> g_var = 5000000
+  }
+*/
+
+/*
+  // std::memory_order_relaxed is NOT giving 
+  // a synchronization guarantee
+
+  #include <atomic>
+  #include <cassert>
+  #include <thread>
+
+  std::atomic<bool> g_atom_x, g_atom_y, g_atom_z;
+
+  void func_1()
+  {
+    g_atom_x.store(true, std::memory_order_relaxed);
+  }
+
+  void func_2()
+  {
+    g_atom_y.store(true, std::memory_order_relaxed);
+  }
+
+  void func_3()
+  {
+    while (!g_atom_y.load(std::memory_order_relaxed))
+      ; // null statement
+
+    if (g_atom_x.load(std::memory_order_relaxed))
+      g_atom_z = true;
+
+    assert(g_atom_z);
+  }
+
+  int main()
+  {
+    for (int i = 0; i < 100'000; ++i)
+    {
+      g_atom_x = false;
+      g_atom_y = false;
+      g_atom_z = false;
+
+      std::jthread jt1{ func_1 };
+      std::jthread jt2{ func_2 };
+      std::jthread jt3{ func_3 };
+    }
+    // output -> 
+    //  Assertion failed: g_atom_z, file main.cpp, line 8358
+  }
+*/
+
+/*
+  - global bir sayaç değişkeni var ve tek beklenti, threadlerin 
+    bu değişkeni arttırması. 
+    Herhangi bir global order sağlanmasına gerek yok.
+    Senkronizasyon noktası oluşturulmasına gerek yok.
+    Sadece atomicity garantisi verilmesi yeterli.
+    dolayısıyla "std::memory_order_relaxed" semantiği kullanılır.
+*/
+
+/*
+  // std::memory_order_relaxed is giving atomicity guarantee
+
+  #include <atomic>
+  #include <vector>
+  #include <thread>
+
+  std::atomic_int g_atom_counter = 0;
+
+  void func_1()
+  {
+    // ++g_atom_counter;
+    // g_atom_counter.fetch_add(1, std::memory_order_seq_cst);
+    // Those 2 lines are equivalent. (sequential consistency)
+
+    for (int i = 0; i < 100'000; ++i)
+      g_atom_counter.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void func_2()
+  {
+    for (int i = 0; i < 100'000; ++i)
+      g_atom_counter.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void func_3()
+  {
+    for (int i = 0; i < 100'000; ++i)
+      g_atom_counter.fetch_add(1, std::memory_order_relaxed);
+  }
+
+
+  int main()
+  {
+    {
+      std::jthread jt1{ func_1 };
+      std::jthread jt2{ func_2 };
+      std::jthread jt3{ func_3 };
+    }
+
+    std::cout << "g_atom_counter = " << g_atom_counter << '\n';
+    // output -> g_atom_counter = 300000
+  }
+*/
+
+/*
+  // no global order, no synchronization, only atomicity
+
+  #include <atomic>
+  #include <syncstream>   // std::osyncstream
+  #include <thread>       // std::jthread
+
+  std::atomic<long> g_atom_data{ 0 };
+
+  void do_work(int id)
+  {
+    std::osyncstream{ std::cout } << "thread id = " << id << " - "
+      << g_atom_data.fetch_add(1, std::memory_order_relaxed) 
+      << '\n';
+  }
+
+  int main()
+  {
+    std::jthread jt1{ do_work, 1 };
+    std::jthread jt2{ do_work, 2 };
+    std::jthread jt3{ do_work, 3 };
+    std::jthread jt4{ do_work, 4 };
+    std::jthread jt5{ do_work, 5 };
+    std::jthread jt6{ do_work, 6 };
+  }
+
+  // output ->
+  //  thread id = 1 - 2
+  //  thread id = 4 - 1
+  //  thread id = 2 - 0
+  //  thread id = 5 - 3
+  //  thread id = 3 - 4
+  //  thread id = 6 - 5
+*/
+
+// ------------------------------------------------------
+// ------------------------------------------------------
+// ------------------------------------------------------
+// ------------------------------------------------------
+// ------------------------------------------------------
+
+/*
+  #include <memory>   // std::shared_ptr
+
+  class Strategy {
+  public:
+    virtual void operator()() = 0;
+    virtual ~Strategy() = default;
+  };
+
+  class Context {
+  private:
+    std::shared_ptr<Strategy> msp_strategy{};
+
+  public:
+    void set_strategy(std::shared_ptr<Strategy> sp_strategy)
+    {
+      msp_strategy = sp_strategy;
+    }
+
+    void do_stuff()
+    {
+      if (msp_strategy)
+        (*msp_strategy)();
+    }
+  };
+*/
