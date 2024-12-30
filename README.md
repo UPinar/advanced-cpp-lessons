@@ -45,7 +45,6 @@
 
 ### [`std::string_view` (C++17)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/string_view)
 
-
 ### [Vocabulary Types (C++17)](https://github.com/UPinar/AdvancedCPPLessons/tree/main/vocabulary_types)
   - `std::optional` class template
   - `std::variant` variadic class template
@@ -248,6 +247,9 @@
     - `std::atomic_flag` class
     - `std::atomic` class template
     - `std::memory_order`
+  - thread-safe interface idiom
+  - guarded suspension
+  - `<semaphore>` module (C++20)
 
 ### [Not Related](https://github.com/UPinar/AdvancedCPPLessons/tree/main/not_related)
   - `template <auto N>` syntax
@@ -268,3 +270,4 @@
   - `std::transform` algorithm
   - `std::inner_product` algorithm
   - `std::partial_sum` algorithm
+  - type erasure technique

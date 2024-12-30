@@ -8550,3 +8550,655 @@
     }
   };
 */
+
+/*
+                -------------------------------
+                | thread-safe interface idiom | 
+                -------------------------------
+*/
+
+/*
+  - bir sınıf türünden nesne veya nesneler kullanılıdığında
+    harici bir senkronizasyon mekanizması kullanılmasına gerek 
+    duyulmamasına yönelik bir idiom.
+  - sınıfın kendisi thread-safe olacak.
+
+  brute force yöntem : sınıfın bütün üye fonksiyonlarını 
+  kilit mekanizması ile çalıştırmak.
+  - maliyet artar ve fonksiyonlar birbirlerini çağırdıklarında
+    recursive mutex kullanılması gerekebilir veya tanımsız 
+    davranış oluşabilir.
+
+  thread-safe interface : 
+  public interface'teki bütün fonksiyonlar bir kilit kullanacak.
+  private ve protected interfaceteki(public interfaceteki 
+  fonksiyonların çağırdığı) fonksiyonlar kilit kullanmayacak.
+    - recursive mutex kullanımına gerek kalmaz. maliyet düşer.
+    - birden fazla kilitleme işlemi olmayacağı için deadlock 
+      (tanımsız davranış) oluşmaz.
+
+  sınıfın const olmayan static veri elemanını kullanan 
+  fonksiyonlar, private veya protected interface'te olsa bile
+  senkronizasyon mekanizması kullanmalıdır.
+
+  virtual dispatch uygulanıyor ise override eden fonksiyonların
+  kilit altında çalışması gerekiyor.
+*/
+
+/*
+  #include <mutex>    // std::mutex, std::scoped_lock
+  #include <thread>   // std::jthread
+
+  class TSI_Class {
+  private:
+    mutable std::mutex m_mtx;
+
+    void impl_f1() 
+    { 
+      std::cout << "impl_f1 called, thread_id = " 
+                << std::this_thread::get_id() << '\n';
+    }
+    void impl_f2()
+    {
+      std::cout << "impl_f2 called, thread_id = " 
+                << std::this_thread::get_id() << '\n';
+    }
+    void impl_f3()
+    {
+      std::cout << "impl_f3 called, thread_id = " 
+                << std::this_thread::get_id() << '\n';
+    }
+
+  public:
+    void foo()
+    {
+      std::scoped_lock guard{ m_mtx };
+      impl_f1();
+      impl_f3();
+    }
+
+    void bar()
+    {
+      std::scoped_lock guard{ m_mtx };
+      impl_f2();
+      impl_f3(); 
+    }
+  };
+
+  int main()
+  {
+    TSI_Class tsi_obj;
+
+    std::jthread jt1{ [&tsi_obj]{ tsi_obj.foo(); } };
+    std::jthread jt2{ [&tsi_obj]{ tsi_obj.bar(); } };
+    tsi_obj.foo();    // main thread
+    tsi_obj.bar();    // main thread
+
+  }
+  // output ->
+  //  impl_f1 called, thread_id = 1
+  //  impl_f3 called, thread_id = 1
+  //  impl_f2 called, thread_id = 1
+  //  impl_f3 called, thread_id = 1
+  //  impl_f1 called, thread_id = 2
+  //  impl_f3 called, thread_id = 2
+  //  impl_f2 called, thread_id = 3
+  //  impl_f3 called, thread_id = 3
+*/
+
+/*
+                      ----------------------
+                      | guarded suspension |
+                      ----------------------
+*/
+
+
+/*
+  // PUSH MODEL 1
+
+  #include <condition_variable>
+  #include <mutex>
+  #include <string>
+  #include <chrono>
+  #include <thread>   // std::this_thread
+
+  std::condition_variable g_cv;
+  std::mutex g_mtx;
+  bool g_ready_flag{};
+  std::string g_str{};
+
+  void consumer_job()
+  {
+    std::cout << "consumer_job is called\n";
+    std::cout << "g_str = " << g_str << '\n'; 
+  }
+
+  void consumer()
+  {
+    std::cout << "consumer is waiting for the consumer_job\n";
+
+    std::unique_lock lock{ g_mtx };
+    g_cv.wait(lock, []{ return g_ready_flag; });
+    consumer_job();
+
+    std::cout << "consumer is done\n";
+  }
+
+  void producer()
+  {
+    using namespace std::chrono_literals;
+
+    std::this_thread::sleep_for(2s);
+
+    {
+      std::scoped_lock lock{ g_mtx };
+      g_str = "hello world";
+      std::cout << "producer is ready, g_str is set.\n";
+      g_ready_flag = true;
+    }
+
+    g_cv.notify_one();
+  }
+
+  int main()
+  {
+    std::jthread jt2{ producer };
+    std::jthread jt1{ consumer };
+  }
+  // output ->
+  //  consumer is waiting for the consumer_job
+  //  producer is ready, g_str is set.
+  //  consumer_job is called
+  //  g_str = hello world
+  //  consumer is done
+*/
+
+
+/*
+  // PUSH MODEL 2
+
+  #include <future>
+  #include <thread>
+
+  double func_compute(double dval)
+  {
+    return dval * dval;
+  }
+
+  void produce(std::promise<double> promise, double dval)
+  {
+    promise.set_value(func_compute(dval));
+  }
+
+  int main()
+  {
+    std::promise<double> promise;
+    auto ftr = promise.get_future();
+
+    std::jthread jt{ produce, std::move(promise), 3.33 };
+    std::cout << ftr.get() << '\n';
+    // output -> 11.0889
+  }
+*/
+
+/*
+  // PULL MODEL 1
+
+  #include <atomic>   // std::atomic_bool
+  #include <string>
+  #include <thread>   // std::jthread
+
+  std::string g_shared_str{};
+  std::atomic_bool g_ready_flag{ false };
+
+  void consumer()
+  {
+    while (!g_ready_flag)
+      ; // null statement
+
+    std::cout << "g_shared_str = " << g_shared_str << '\n';
+  }
+
+  void producer()
+  {
+    g_shared_str = "hello world";
+    g_ready_flag = true;
+  }
+
+  int main()
+  {
+    std::jthread jt1{ consumer };
+    std::jthread jt2{ producer };
+  }
+  // output -> g_shared_str = hello world
+*/
+
+/*
+                  ------------------------------
+                  | <semaphore> module (C++20) |
+                  ------------------------------
+*/
+
+/*
+  - N adet thread'e bir kod parçasına ulaşma şansı vermek.
+  - bir tamsayı değişken ve queue yapısını sarmalar.
+    sarmalanan tamsayı değişken, kaç adet thread'in 
+    kod parçasını çalıştırabileceği anlamına gelir.
+
+  - mutex'i kilitleyen thread açar.
+  - semaphore'i kilitleyen thread ile açan thread aynı olmak 
+    zorunda değil.
+*/
+
+/*
+  #include <semaphore>  
+  // std::counting_semaphore, std::binary_semaphore
+
+  int main()
+  {
+    // -------------------------------------------------
+
+    std::counting_semaphore<> sem(0);
+    // constructor'ına argüman olarak 0 geçildiğinde,
+    // bir thread'in, semaphore'un "release"
+    //  fonksiyonunu çağırması gerekiyor ki 
+    // sayacı arttırsın ve diğer threadlerin kod parçasına
+    // ulaşmasına izin versin.
+
+    // -------------------------------------------------
+
+    std::counting_semaphore<1> sem_1(0);
+    std::binary_semaphore sem_2(0);
+    // Those 2 lines are equivalent.
+
+    // max değeri 1 olabilir(1 thread girebilir veya çıkabilir).
+
+    // -------------------------------------------------
+  }
+*/
+
+/*
+  #include <semaphore>  // std::counting_semaphore
+  #include <chrono>
+  #include <syncstream> // std::osyncstream
+  #include <thread>     // std::this_thread, std::jthread
+  #include <vector> 
+
+  std::counting_semaphore g_smp{ 3 };
+
+  void func()
+  {
+    using namespace std::chrono_literals;
+
+    g_smp.acquire();
+
+    std::osyncstream{ std::cout } 
+      << "thread_id = " << std::this_thread::get_id() << '\n';
+
+    
+    std::this_thread::sleep_for(1000ms);
+
+    g_smp.release();
+  }
+
+  int main()
+  {
+    std::vector<std::jthread> tx_vec;
+
+    for (int i = 0; i < 7; ++i)
+      tx_vec.emplace_back(func);
+
+    // output ->
+    //  thread_id = 7
+    //  thread_id = 5
+    //  thread_id = 6
+    //  ----------------------> waits here
+    //  thread_id = 8
+    //  thread_id = 2
+    //  thread_id = 4
+    //  ----------------------> waits here
+    //  thread_id = 3
+  }
+*/
+
+/*
+  #include <semaphore>  // std::counting_semaphore
+  #include <chrono>
+  #include <syncstream> // std::osyncstream
+  #include <thread>     // std::this_thread, std::jthread
+  #include <vector> 
+
+  std::counting_semaphore g_smp{ 3 };
+
+  void func_1()
+  {
+    using namespace std::chrono_literals;
+
+    g_smp.acquire();
+    std::osyncstream{ std::cout } 
+      << "func_1, thread_id = " 
+      << std::this_thread::get_id() << '\n';
+    std::this_thread::sleep_for(1000ms);
+    g_smp.release();
+  }
+
+  void func_2()
+  {
+    using namespace std::chrono_literals;
+
+    g_smp.acquire();
+    std::osyncstream{ std::cout } 
+      << "func_2, thread_id = " 
+      << std::this_thread::get_id() << '\n';
+    std::this_thread::sleep_for(1000ms);
+    g_smp.release();
+  }
+
+  int main()
+  {
+    std::vector<std::jthread> tx_vec;
+
+    for (int i = 0; i < 7; ++i) {
+      if (i % 2 == 0)
+        tx_vec.emplace_back(func_1);
+      else
+        tx_vec.emplace_back(func_2);
+    }
+
+    // output ->
+    //  func_1, thread_id = 2
+    //  func_2, thread_id = 3
+    //  func_1, thread_id = 4
+    //  ----------------------> waits here
+    //  func_2, thread_id = 5
+    //  func_2, thread_id = 7
+    //  func_1, thread_id = 6
+    //  ----------------------> waits here
+    //  func_1, thread_id = 8
+  }
+
+  // acquiring and releasing the semaphore in different 
+  // functions in different threads.
+*/
+
+/*
+  #include <string>
+  #include <semaphore>  // std::binary_semaphore
+  #include <thread>     // std::this_thread, std::jthread
+  #include <chrono>
+
+  std::string g_str{};
+  std::binary_semaphore g_bsmp{ 0 };
+
+  void producer()
+  {
+    using namespace std::chrono_literals;
+
+    g_str = "hello world";
+    std::cout << "data is ready to consume\n";
+    
+    std::this_thread::sleep_for(1s);
+    g_bsmp.release();   // counter will increse to 1.
+  }
+
+  void consumer()
+  {
+    std::cout << "consumer is waiting for the data\n";
+    g_bsmp.acquire();
+    std::cout << "g_str = " << g_str << '\n';
+  }
+
+  int main()
+  {
+    {
+      std::jthread jt1{ producer };
+      std::jthread jt2{ consumer };
+    }
+    // output ->
+    //  data is ready to consume
+    //  consumer is waiting for the data
+    //  -----> 1 second passed
+    //  g_str = hello world
+  }
+*/
+
+/*
+  #include <semaphore>      // std::binary_semaphore
+  #include <thread>         // std::jthread, std::this_thread
+  #include <syncstream>     // std::osyncstream
+  #include <chrono>
+
+  std::osyncstream os{ std::cout };
+
+  int main()
+  {
+    using namespace std::chrono_literals;
+
+    std::binary_semaphore bsmp{ 0 };
+
+    std::jthread jt1{ [&bsmp](){
+      os  << "thread_id = " << std::this_thread::get_id()
+          << " is waiting.\n";
+      bsmp.acquire();
+      os  << "thread_id = " << std::this_thread::get_id()
+          << " is done.\n";
+      }
+    };
+
+    std::this_thread::sleep_for(1500ms);
+
+    os  << "thread " << std::this_thread::get_id() 
+        << " will woke thread " << jt1.get_id() << '\n'; 
+
+    bsmp.release();
+  }
+
+  // output ->
+  //  thread_id = 2 is waiting.
+  //  thread 1 will woke thread 2
+  //  thread_id = 2 is done.
+*/
+
+/*
+  #include <thread>
+  #include <semaphore>  // std::binary_semaphore
+  #include <atomic>     // std::atomic_int
+
+  std::binary_semaphore g_bsmp_ping{ 0 };
+  std::binary_semaphore g_bsmp_pong{ 0 };
+
+  std::atomic_int g_atom_counter{ 0 };
+  constexpr int N = 10;
+
+  void ping()
+  {
+    while(g_atom_counter <= N) 
+    {
+      g_bsmp_ping.acquire();
+      ++g_atom_counter;
+      std::cout << "ping ";
+      g_bsmp_pong.release();
+    }
+  }
+
+  void pong()
+  {
+    while(g_atom_counter <= N) 
+    {
+      g_bsmp_pong.acquire();
+      ++g_atom_counter;
+      std::cout << "pong\n";
+      g_bsmp_ping.release();
+    }
+  }
+
+  int main()
+  {
+    g_bsmp_ping.release();
+
+    {
+      std::jthread jt1{ ping };
+      std::jthread jt2{ pong };
+    }
+
+    // output ->
+    //  ping pong
+    //  ping pong
+    //  ping pong
+    //  ping pong
+    //  ping pong
+    //  ping pong
+  }
+*/
+
+// --------------------------------------------------------
+// --------------------------------------------------------
+// --------------------------------------------------------
+// --------------------------------------------------------
+// --------------------------------------------------------
+
+/*
+  #include <thread>       // std::jthread
+  #include <functional>   // std::ref
+
+  struct AStruct {
+    AStruct() = default;
+    AStruct(const AStruct&)
+    {
+      std::cout << "copy ctor\n";
+    }
+    AStruct(AStruct&&)
+    {
+      std::cout << "move ctor\n";
+    }
+  };
+
+  void func_1(AStruct){}
+  void func_2(AStruct&&){}
+  void func_3(AStruct&){}
+  void func_4(const AStruct&){}
+
+  int main()
+  {
+    AStruct a1;
+    const AStruct ca2;
+
+    // --------------------------------------------
+
+    {
+      std::jthread jt1(func_1, a1);
+      // output ->
+      //  copy ctor
+      //  move ctor
+    }
+
+    std::cout << "--------------------------------\n";
+
+    // --------------------------------------------
+
+    {
+      std::jthread jtx(func_1, ca2);
+      // output ->
+      //  copy ctor
+      //  move ctor
+    }
+
+    std::cout << "--------------------------------\n";
+
+    // --------------------------------------------
+
+    {
+      std::jthread jtx(func_1, AStruct{});
+      // output ->
+      //  move ctor
+      //  move ctor
+    }
+
+    std::cout << "--------------------------------\n";
+
+    // --------------------------------------------
+
+    {
+      std::jthread jtx(func_2, a1);
+      // output -> copy ctor
+    }
+
+    std::cout << "--------------------------------\n";
+
+    // --------------------------------------------
+
+    {
+      std::jthread jtx(func_2, AStruct{});
+      // output -> move ctor
+    }
+
+    std::cout << "--------------------------------\n";
+
+    // --------------------------------------------
+
+    {
+      std::jthread jtx(func_2, ca2);
+      // output -> copy ctor
+    }
+
+    std::cout << "--------------------------------\n";
+
+    // --------------------------------------------
+
+    // {
+    //   std::jthread jtx(func_3, a1);   // syntax error
+    //   // error: static assertion failed: 
+    //   //  std::jthread arguments must be invocable 
+    //   //  after conversion to rvalues
+    // }
+
+
+    // --------------------------------------------
+
+    {
+      std::jthread jtx(func_3, std::ref(a1)); 
+      // output -> ""
+    }
+
+    std::cout << "--------------------------------\n";
+
+    // --------------------------------------------
+
+    {
+      std::jthread jtx(func_4, a1); 
+      // output -> copy ctor
+    }
+
+    std::cout << "--------------------------------\n";
+
+    // --------------------------------------------
+
+    {
+      std::jthread jtx(func_4, AStruct{}); 
+      // output -> move ctor
+    }
+
+    std::cout << "--------------------------------\n";
+
+    // --------------------------------------------
+  }
+
+  // thread sınıfının constructer'ında variadic parametre paketindeki
+  // elemanlara decay copy uygulanır.
+  //  - referanslık ve constluk düşer.
+  //  - array to pointer dönüşümü yapılır.
+  //  - function to pointer dönüşümü yapılır. 
+  // sonra thread sınıfının constructor'ı, 
+  // RValue expression olan bir nesne oluşturur,
+  // dolayısıyla fonksiyona geçilen argümanın(variadic parametrenin)
+  // RValue expression ile construct edilebilmesi gerekmektedir.
+
+  //  void func_1(AStruct){}
+  //  void func_2(AStruct&&){}
+  //  void func_3(AStruct&){}
+  //  void func_4(const AStruct&){}
+
+  // func_1, func_2, func_4 fonksiyonları 
+  // herhangi bir sentaks hatası oluşturmaz. 
+  // Hepsine RValue expression ile çağrı yapılabilir.
+*/

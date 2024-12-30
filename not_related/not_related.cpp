@@ -1961,9 +1961,195 @@
   }
 */
 
+/*
+                    --------------------------
+                    | type erasure technique |
+                    --------------------------
+*/
 
-// --------------------------------------------------
-// --------------------------------------------------
-// --------------------------------------------------
-// --------------------------------------------------
-// --------------------------------------------------
+/*
+  bir konteyner içinde, birbirleriyle ilişkisi olmayan 
+  user-defined ve primitive türleri tutabilmek kalıtıma 
+  ciddi bir alternatif oluşturur, bunu sağlayan
+  type erasure tekniğidir.
+*/
+
+/*
+  #include <vector>
+  #include <string>
+  #include <memory>     // std::shared_ptr, std::make_shared
+  #include <utility>    // std::forward
+
+  struct AStruct {
+    std::string get_str() const { return "AStruct::get_str()"; }
+  };
+  struct BStruct {
+    std::string get_str() const { return "BStruct::get_str()"; }
+  };
+  struct CStruct {
+    std::string get_str() const { return "CStruct::get_str()"; }
+  };
+
+  using namespace std;
+
+  class Object {
+  public:
+    // member function template constructor
+    template <typename T>
+    Object(T&& val) 
+      : msp_concept(make_shared<Model<T>>(forward<T>(val))){}
+
+    std::string get_str() const 
+    { 
+      return msp_concept->get_str(); 
+    }
+
+  private:
+    struct Concept {
+      virtual ~Concept() = default;
+      // shared interface functions
+      virtual std::string get_str() const = 0;
+    };
+
+    template <typename T>
+    struct Model : Concept {
+      T m_obj;
+
+      Model(const T& val) : m_obj{ val } {}
+      std::string get_str() const override 
+      { 
+        return m_obj.get_str();
+      }
+    };  
+
+    std::shared_ptr<const Concept> msp_concept;
+  };
+
+  int main()
+  {
+    std::vector<Object> obj_vec{ 
+      Object{ AStruct{}}, 
+      Object{ BStruct{}}, 
+      Object{ CStruct{}}
+    };
+
+    AStruct a1;
+    BStruct b1;
+    CStruct c1;
+
+    obj_vec.push_back(a1);
+    obj_vec.push_back(b1);
+    obj_vec.push_back(c1);
+
+    for (const auto& obj : obj_vec)
+      std::cout << obj.get_str() << '\n';
+
+    // output ->
+    //  AStruct::get_str()
+    //  BStruct::get_str()
+    //  CStruct::get_str()
+    //  AStruct::get_str()
+    //  BStruct::get_str()
+    //  CStruct::get_str()
+  }
+*/
+
+/*
+  #include <memory>   // std::unique_ptr, std::make_unique
+  #include <vector>
+
+  using namespace std;
+
+  class Animal {
+  public:
+    template <typename T>
+    Animal(T&& val) 
+      : msp_concept{ make_unique<AnimalModel<T>>(forward<T>(val)) } {}
+
+    Animal(const Animal& other) 
+      : msp_concept{ other.msp_concept->clone() } {}
+
+    Animal& operator=(const Animal& other)
+    {
+      return *this = Animal(other);
+      // move assignment operator will be called
+    }
+
+    Animal(Animal&&) noexcept = default;
+    Animal& operator=(Animal&&) noexcept = default;
+  
+    void make_sound() 
+    { 
+      msp_concept->make_sound(); 
+    }
+
+  private:
+    struct AnimalConcept {
+      virtual ~AnimalConcept() = default;
+      virtual unique_ptr<AnimalConcept> clone() const = 0;
+      virtual void make_sound() = 0;
+    };
+
+    template <typename T>
+    struct AnimalModel : public AnimalConcept {
+      T m_obj;
+
+      AnimalModel(const T& val) : m_obj{ val } {}
+
+      unique_ptr<AnimalConcept> clone() const override
+      {
+        return make_unique<AnimalModel>(*this);
+      }
+
+      void make_sound() override
+      {
+        m_obj.make_sound();
+      }
+    };
+
+    unique_ptr<AnimalConcept> msp_concept;
+  };
+
+  struct Cat {
+    void make_sound() { cout << "miyav\n"; }
+  };
+
+  struct Dog {
+    void make_sound() { cout << "hav\n"; }
+  };
+
+  struct Bird {
+    void make_sound() { cout << "cik\n"; }
+  };
+
+  int main()
+  {
+    Animal a1{ Cat{} };
+    Animal a2{ Dog{} };
+    Animal a3{ Bird{} };
+
+    a1.make_sound();    // output -> miyav
+    a2.make_sound();    // output -> hav
+    a3.make_sound();    // output -> cik
+
+    vector<Animal> animal_vec;
+    animal_vec.emplace_back(Cat{});
+    animal_vec.emplace_back(Dog{});
+    animal_vec.emplace_back(Bird{});
+
+    for (auto& animal : animal_vec)
+      animal.make_sound();
+    // output ->
+    //  miyav
+    //  hav
+    //  cik
+  }
+*/
+
+/*
+  - std::any
+  - std::shared_ptr's deleter
+  - std::function
+
+  are using type erasure technique.
+*/
