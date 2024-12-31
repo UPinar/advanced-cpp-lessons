@@ -879,7 +879,7 @@
   #include <vector>
   #include <algorithm>  // std::copy_backward
   #include <numeric>    // std::iota
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -1132,7 +1132,7 @@
   #include <vector>
   #include <string>
   #include <algorithm>  // std::for_each
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   void callable_function(std::string name)
   {
@@ -1180,7 +1180,7 @@
   #include <vector>
   #include <string>
   #include <algorithm>  // std::for_each
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   void callable_function(std::string name)
   {

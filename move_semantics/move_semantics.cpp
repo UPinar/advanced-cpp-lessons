@@ -119,7 +119,7 @@
 
 /*
   #define MYCLASS_1
-  #include "../myclass.hpp"
+  #include "../headers/myclass.hpp"
 
   // using `const` in a functions return type
   // prevents the compiler from move semantics
@@ -168,7 +168,7 @@
 
 /*
   #define MYCLASS_1
-  #include "../myclass.hpp"
+  #include "../headers/myclass.hpp"
 
   // using std::move in functions return expression
   // pessimistic move
@@ -217,7 +217,7 @@
   // but we want specifically move members to be called
 
   #define MYCLASS_1
-  #include "../myclass.hpp"
+  #include "../headers/myclass.hpp"
 
   int main(){
     Myclass m1{ 34 };
@@ -235,7 +235,7 @@
 
 /*
   #define MYCLASS_1
-  #include "../myclass.hpp"
+  #include "../headers/myclass.hpp"
   #include <utility>  // std::move
 
   class AClass{
@@ -295,7 +295,7 @@
 
 /*
   #define MYCLASS_1
-  #include "../myclass.hpp"
+  #include "../headers/myclass.hpp"
   #include <utility>  // std::move
 
   // -------------------- SCENARIO_1 --------------------

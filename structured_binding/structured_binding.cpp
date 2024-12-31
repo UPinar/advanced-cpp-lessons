@@ -406,7 +406,7 @@
   #include <string>
   #include <algorithm>  // std::minmax_element
 
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -429,7 +429,7 @@
   #include <iomanip>    // std::setw, std::setf
   #include <algorithm>  // std::sort
 
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   using Person = std::tuple<int, std::string, std::string>;
 

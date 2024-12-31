@@ -251,7 +251,7 @@
   #include <functional> // std::ref
   #include <string>
 
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   template <typename F>
   class CountCalls{
@@ -328,7 +328,7 @@
   #include <vector>
   #include <algorithm>  // std::for_each
 
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   class Functor{
   public:

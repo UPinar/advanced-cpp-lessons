@@ -11,7 +11,7 @@
   #include <algorithm>    // std::sort, std::copy
   #include <iterator>     // std::ostream_iterator
   #include <ranges>       // std::ranges::sort, std::ranges::copy
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -45,7 +45,7 @@
   #include <ranges>
   #include <algorithm>
 
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -515,7 +515,7 @@
 /*
   #include <vector>
   #include <algorithm>  // std::copy, std::ranges::copy
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -573,7 +573,7 @@
 /*
   #include <vector>
   #include <algorithm>  // std::ranges::copy
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -761,7 +761,7 @@
   #include <algorithm>  // std::ranges::sort, std::sort
   #include <vector>
   #include <cmath>      // std::abs
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -809,7 +809,7 @@
   #include <vector>
   #include <algorithm>  // ranges::generate, ranges::copy, ranges::sort
   #include <iterator>   // ostream_iterator
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   struct Point {
     int m_x{};
@@ -873,7 +873,7 @@
   #include <string>
   #include <algorithm>  // ranges::copy
   #include <iterator>   // ostream_iterator
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -910,7 +910,7 @@
   #include <numeric>  // std::accumulate
   #include <vector>
   #include <string>
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -962,7 +962,7 @@
   #include <vector>
   #include <string>
   #include <format>
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -1171,7 +1171,7 @@
 /*
   #include <ranges>
   #include <vector>
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   // namespace std::views = std::ranges::views (namespace alias)
 
@@ -1207,7 +1207,7 @@
 /*
   #include <ranges>
   #include <vector>
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -1236,7 +1236,7 @@
   #include <ranges>
   #include <algorithm>  // ranges::for_each
   #include <vector>
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -1277,7 +1277,7 @@
   #include <algorithm>  // ranges::for_each
   #include <vector>
   #include <ranges>
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -1307,7 +1307,7 @@
   // ranges::views, ranges::views::reverse, ranges::for_each
   // ranges::views::take
   #include <algorithm>  // ranges::for_each
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -1367,7 +1367,7 @@
 /*
   #include <vector>
   #include <ranges> // views::reverse, views::take, views::filter
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -1400,7 +1400,7 @@
 /*
   #include <vector>
   #include <ranges> // views::reverse, views::take, views::filter
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
@@ -1581,7 +1581,7 @@
 
 /*
   #include <ranges>
-  #include "../nutility.h"  // isprime
+  #include "../headers/nutility.h"  // isprime
 
   int main()
   {
@@ -1625,7 +1625,7 @@
 
 /*
   #include <ranges>
-  #include "../nutility.h"  // isprime
+  #include "../headers/nutility.h"  // isprime
 
   int main()
   {
@@ -2224,7 +2224,7 @@
   #include <algorithm>  
   // ranges::generate, ranges::sort, ranges::lower_bound
   #include <format>
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   using i_vec = std::vector<int>;
   auto get_vec(std::size_t size)
@@ -2720,7 +2720,7 @@
   #include <ranges>
   #include <vector>
   #include <utility>  // std::pair
-  #include "../nutility.h"
+  #include "../headers/nutility.h"
 
   int main()
   {
